@@ -1,0 +1,71 @@
+{
+  "name": "ess-server-controller",
+  "version": "1.0.0",
+  "description": "ESS Server Controller desktop dashboard",
+  "main": "main.js",
+  "author": "ESS",
+  "license": "UNLICENSED",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron .",
+    "build": "electron-builder",
+    "dist": "electron-builder --win --x64"
+  },
+  "dependencies": {
+    "semver": "^7.6.3"
+  },
+  "devDependencies": {
+    "electron": "^30.5.1",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.ess.servercontroller",
+    "productName": "ESS Server Controller",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "src/**/*",
+      "backend/**/*",
+      "config/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "src/assets/icon.ico",
+      "artifactName": "ESS-Server-Controller-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "ESS Server Controller",
+      "runAfterFinish": true,
+      "deleteAppDataOnUninstall": false,
+      "installerIcon": "src/assets/icon.ico",
+      "uninstallerIcon": "src/assets/icon.ico",
+      "installerHeader": "src/assets/installer-header.bmp",
+      "installerHeaderIcon": "src/assets/icon.ico",
+      "installerSidebar": "src/assets/installer-sidebar.bmp",
+      "uninstallerSidebar": "src/assets/installer-sidebar.bmp"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "Andrew79750",
+        "repo": "Multi-Server-Server-Controller"
+      }
+    ]
+  }
+}

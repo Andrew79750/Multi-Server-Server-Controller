@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ESS Server Controller</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="brand-mark">ESS</div>
+          <div>
+            <strong>ESS</strong>
+            <span>Server Controller</span>
+          </div>
+        </div>
+        <nav class="nav">
+          <button class="nav-btn active" data-page="dashboard">Dashboard</button>
+          <button class="nav-btn" data-page="servers">Servers</button>
+          <button class="nav-btn" data-page="websites">Websites</button>
+          <button class="nav-btn" data-page="github">GitHub</button>
+          <button class="nav-btn" data-page="logs">Logs</button>
+          <button class="nav-btn" data-page="settings">Settings</button>
+        </nav>
+        <div class="sidebar-status">
+          <span class="pulse"></span>
+          <div>
+            <strong>Desktop app</strong>
+            <small>Electron bridge online</small>
+          </div>
+        </div>
+      </aside>
+
+      <main class="main">
+        <div class="glow glow-a"></div>
+        <div class="glow glow-b"></div>
+
+        <header class="topbar">
+          <div>
+            <span class="eyebrow">VPS Management</span>
+            <h1 id="pageTitle">Dashboard</h1>
+          </div>
+          <div class="topbar-actions">
+            <div class="system-chip" id="systemChip">Loading system</div>
+            <button class="icon-btn" id="themeToggle" title="Toggle theme">Theme</button>
+          </div>
+        </header>
+
+        <section class="page active" id="page-dashboard">
+          <div class="metric-grid" id="dashboardMetrics"></div>
+          <div class="content-grid two">
+            <section class="panel">
+              <div class="panel-head">
+                <h2>Server Overview</h2>
+                <button class="ghost-btn" data-go="servers">Manage</button>
+              </div>
+              <div class="stack" id="dashboardServers"></div>
+            </section>
+            <section class="panel">
+              <div class="panel-head">
+                <h2>Recent Events</h2>
+                <button class="ghost-btn" data-go="logs">View Logs</button>
+              </div>
+              <div class="event-list" id="recentEvents"></div>
+            </section>
+          </div>
+        </section>
+
+        <section class="page" id="page-servers">
+          <div class="cards-grid" id="serverCards"></div>
+        </section>
+
+        <section class="page" id="page-websites">
+          <div class="cards-grid" id="websiteCards"></div>
+        </section>
+
+        <section class="page" id="page-github">
+          <section class="panel hero-panel">
+            <div>
+              <span class="eyebrow">Auto GitHub Updater</span>
+              <h2>Cached live state, quiet git fetches, one updater loop.</h2>
+              <p>UI refreshes every second while actual Git operations respect the configured cooldown and per-repo locks.</p>
+            </div>
+            <div class="hero-actions">
+              <label class="switch-row">
+                <input type="checkbox" id="githubEnabled" />
+                <span class="switch"></span>
+                Auto updater
+              </label>
+              <button class="primary-btn" id="githubCheckNow">Manual Check</button>
+              <button class="ghost-btn" id="githubAddRepo">Add Repo</button>
+            </div>
+          </section>
+          <div class="repo-grid" id="repoGrid"></div>
+        </section>
+
+        <section class="page" id="page-logs">
+          <section class="panel terminal-panel">
+            <div class="panel-head">
+              <div>
+                <h2>Logs</h2>
+                <p>Centralized app, server, website, and GitHub events.</p>
+              </div>
+              <div class="button-row">
+                <select id="logFilter">
+                  <option value="all">All</option>
+                  <option value="info">Info</option>
+                  <option value="warning">Warning</option>
+                  <option value="error">Error</option>
+                  <option value="github">GitHub</option>
+                  <option value="server">Server</option>
+                  <option value="website">Website</option>
+                </select>
+                <button class="ghost-btn" id="exportLogs">Export</button>
+                <button class="danger-btn" id="clearLogs">Clear</button>
+              </div>
+            </div>
+            <pre class="terminal" id="logViewer"></pre>
+          </section>
+        </section>
+
+        <section class="page" id="page-settings">
+          <div class="content-grid two">
+            <section class="panel">
+              <h2>Appearance</h2>
+              <label class="field-row">
+                Theme
+                <select id="settingsTheme">
+                  <option value="dark">Dark</option>
+                  <option value="light">Light</option>
+                </select>
+              </label>
+              <label class="field-row">
+                Notification timeout
+                <input id="notificationTimeout" type="number" min="1000" step="500" />
+              </label>
+            </section>
+            <section class="panel">
+              <h2>GitHub Updater</h2>
+              <label class="field-row">
+                Fetch cooldown seconds
+                <input id="fetchCooldown" type="number" min="5" step="1" />
+              </label>
+              <label class="switch-row">
+                <input type="checkbox" id="pullOnUpdate" />
+                <span class="switch"></span>
+                Pull automatically when updates are detected
+              </label>
+            </section>
+          </div>
+          <div class="content-grid two">
+            <section class="panel">
+              <div class="panel-head">
+                <div>
+                  <h2>Startup & Shortcuts</h2>
+                  <p>Installed app conveniences for this Windows machine.</p>
+                </div>
+              </div>
+              <label class="switch-row setting-toggle">
+                <input type="checkbox" id="startWithWindows" />
+                <span class="switch"></span>
+                Start with Windows
+              </label>
+              <div class="button-row settings-actions">
+                <button class="primary-btn" id="createDesktopShortcut">Create Desktop Shortcut</button>
+                <button class="ghost-btn" id="openInstallFolder">Open Installed App Folder</button>
+              </div>
+            </section>
+            <section class="panel">
+              <div class="panel-head">
+                <div>
+                  <h2>About & Updates</h2>
+                  <p>GitHub Releases power app update notifications.</p>
+                </div>
+                <span class="status-pill" id="currentVersionPill">v0.0.0</span>
+              </div>
+              <div class="detail-row"><span>Repository</span><span class="path-text">Andrew79750/Multi-Server-Server-Controller</span></div>
+              <div class="detail-row"><span>Last check</span><span id="lastUpdateCheck">Never</span></div>
+              <div class="detail-row"><span>Latest version</span><span id="latestUpdateVersion">Unknown</span></div>
+              <label class="switch-row setting-toggle">
+                <input type="checkbox" id="updatesEnabled" />
+                <span class="switch"></span>
+                Enable update checks
+              </label>
+              <label class="switch-row setting-toggle">
+                <input type="checkbox" id="checkUpdatesOnStartup" />
+                <span class="switch"></span>
+                Check on startup
+              </label>
+              <label class="switch-row setting-toggle">
+                <input type="checkbox" id="notifyOnUpdate" />
+                <span class="switch"></span>
+                Notify when an update is available
+              </label>
+              <label class="field-row">
+                Check interval minutes
+                <input id="updateInterval" type="number" min="5" step="5" />
+              </label>
+              <div class="button-row settings-actions">
+                <button class="primary-btn" id="checkForUpdates">Check for Updates</button>
+                <button class="ghost-btn" id="viewGithubReleases">View GitHub Releases</button>
+              </div>
+            </section>
+          </div>
+          <section class="panel">
+            <div class="panel-head">
+              <div>
+                <h2>Server Profiles</h2>
+                <p>Launch commands are intentionally configurable so missing paths never crash the controller.</p>
+              </div>
+              <button class="primary-btn" id="saveSettings">Save Settings</button>
+            </div>
+            <div class="settings-server-list" id="settingsServers"></div>
+          </section>
+        </section>
+      </main>
+    </div>
+
+    <div class="modal-backdrop" id="updateModal" aria-hidden="true">
+      <section class="update-modal" role="dialog" aria-modal="true" aria-labelledby="updateModalTitle">
+        <button class="modal-close" id="closeUpdateModal" type="button" title="Close">x</button>
+        <span class="eyebrow">GitHub Release</span>
+        <h2 id="updateModalTitle">Update Available</h2>
+        <div class="version-compare">
+          <span id="modalCurrentVersion">Current v0.0.0</span>
+          <strong>→</strong>
+          <span id="modalLatestVersion">New v0.0.0</span>
+        </div>
+        <h3 id="modalReleaseTitle">Release title</h3>
+        <p id="modalPublishedDate">Published date</p>
+        <div class="changelog-box" id="modalChangelog"></div>
+        <div class="button-row modal-actions">
+          <button class="primary-btn" id="downloadUpdate">Download Update</button>
+          <button class="ghost-btn" id="viewRelease">View Release</button>
+          <button class="ghost-btn" id="remindLater">Remind Me Later</button>
+          <button class="danger-btn" id="skipVersion">Skip This Version</button>
+        </div>
+      </section>
+    </div>
+    <div class="toast-container" id="toastContainer"></div>
+    <script src="./renderer.js"></script>
+  </body>
+</html>
