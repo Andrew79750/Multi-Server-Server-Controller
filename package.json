@@ -10,7 +10,13 @@
     "start": "electron .",
     "dev": "electron .",
     "build": "electron-builder",
-    "dist": "electron-builder --win --x64"
+    "dist": "electron-builder --win --x64",
+    "pack:app": "electron-builder --dir --win --x64",
+    "prepare-payload": "node scripts/prepare-payload.js",
+    "installer:install": "cd installer && npm install",
+    "installer:dev": "cd installer && npm start",
+    "installer:build": "cd installer && npm run dist",
+    "build:full": "npm run pack:app && npm run prepare-payload && npm run installer:build"
   },
   "dependencies": {
     "semver": "^7.6.3"
@@ -42,11 +48,12 @@
           ]
         }
       ],
-      "icon": "src/assets/icon.ico",
-      "artifactName": "ESS-Server-Controller-Setup-${version}.${ext}"
+      "icon": "src/assets/icon.ico"
     },
     "nsis": {
       "oneClick": false,
+      "perMachine": false,
+      "allowElevation": true,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
@@ -58,7 +65,9 @@
       "installerHeader": "src/assets/installer-header.bmp",
       "installerHeaderIcon": "src/assets/icon.ico",
       "installerSidebar": "src/assets/installer-sidebar.bmp",
-      "uninstallerSidebar": "src/assets/installer-sidebar.bmp"
+      "uninstallerSidebar": "src/assets/uninstaller-sidebar.bmp",
+      "artifactName": "ESS-Server-Controller-Setup-${version}.${ext}",
+      "include": "build/installer.nsh"
     },
     "publish": [
       {

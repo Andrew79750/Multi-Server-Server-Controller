@@ -22,47 +22,52 @@ npm start
 npm run dist
 ```
 
-The Windows NSIS installer is written to `dist` with a name like:
+The Windows NSIS installer is written to `dist/`:
 
-```text
+```
 ESS-Server-Controller-Setup-1.0.0.exe
 ```
 
-The installer is configured to:
+## Installer Features
 
-- Install the app locally through NSIS.
-- Create a Desktop shortcut.
-- Create a Start Menu shortcut.
-- Add an uninstaller.
-- Run the installed app after setup.
-- Preserve `%APPDATA%\ESS Server Controller` on uninstall.
+- **Choose install location** — defaults to `%LOCALAPPDATA%\Programs\ESS Server Controller`, fully changeable
+- **Desktop shortcut** created automatically
+- **Start Menu shortcut** created automatically (`ESS Server Controller`)
+- **Uninstaller** registered in Add/Remove Programs
+- **App data preserved** on uninstall (`deleteAppDataOnUninstall: false`)
+- **Launch on finish** — optional checkbox on the final page
+- **Branded UI** — dark navy sidebar, ESS-themed header, custom icons
 
-## Installer Branding Assets
+## Installer Asset Paths
 
-The installer uses:
+| File | Dimensions | Purpose |
+|------|-----------|---------|
+| `src/assets/icon.ico` | 256×256 multi-res | App icon, installer + uninstaller icon |
+| `src/assets/installer-sidebar.bmp` | 164×314 | Welcome/Finish page left sidebar (blue accent) |
+| `src/assets/installer-header.bmp` | 150×57 | Inner-page header strip |
+| `src/assets/uninstaller-sidebar.bmp` | 164×314 | Uninstaller sidebar (red accent) |
 
-- `src/assets/icon.ico`
-- `src/assets/installer-sidebar.bmp`
-- `src/assets/installer-header.bmp`
+Replace any of these with final artwork. Keep BMP format — NSIS requires it.
 
-Replace these files with final branded artwork when desired. Keep the sidebar/header as BMP files for NSIS compatibility.
+## Custom NSIS Script
+
+`build/installer.nsh` customises installer copy text (page titles, welcome/finish wording, registry entries). Edit it to update on-screen messaging without touching `package.json`.
 
 ## Release Update Process
 
 The app checks GitHub Releases from:
 
-```text
+```
 https://github.com/Andrew79750/Multi-Server-Server-Controller
 ```
 
 To publish an update:
 
-1. Change `version` in `package.json`.
+1. Bump `version` in `package.json`.
 2. Run `npm install` if dependencies changed.
 3. Build with `npm run dist`.
-4. Create a GitHub release with tag `vX.X.X`.
-5. Upload the generated installer from `dist`.
-6. Put update notes in the GitHub release body.
-7. Installed apps will detect the release on startup or from Settings > About & Updates.
+4. Create a GitHub release tagged `vX.X.X`.
+5. Upload the installer from `dist/`.
+6. Add release notes to the GitHub release body.
 
-The updater compares `package.json` / installed app version against the latest GitHub release tag. Tags can be `v1.0.1` or `1.0.1`.
+Installed apps detect the new release on startup or via **Settings → About & Updates**.

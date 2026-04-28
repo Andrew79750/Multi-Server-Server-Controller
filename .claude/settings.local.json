@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(identify \"c:/Users/Administrator/Desktop/Server-Controller/src/assets/installer-sidebar.bmp\")",
+      "Bash(python3 -c ' *)",
+      "Bash(powershell -Command ' *)",
+      "Bash(python3 -c \"from PIL import Image, ImageDraw, ImageFont; print\\('Pillow available'\\)\")",
+      "Bash(python -c \"from PIL import Image, ImageDraw, ImageFont; print\\('Pillow available'\\)\")",
+      "Bash(pip install *)",
+      "Bash(python3 -m pip install Pillow --quiet)",
+      "Bash(python3 -c \"from PIL import Image; print\\('ok'\\)\")",
+      "Bash(python3)",
+      "Bash(npm run *)",
+      "Bash(taskkill /F /IM \"ESS Server Controller.exe\" /T)",
+      "Bash(taskkill /F /IM electron.exe /T)",
+      "PowerShell(Get-Process)",
+      "PowerShell(Get-ChildItem \"C:\\\\Users\\\\Administrator\\\\Desktop\\\\Server-Controller\\\\dist2\" | Select-Object Name, @{N='Size';E={[math]::Round\\($_.Length/1MB,2\\)}})",
+      "Bash(npm install *)",
+      "Bash(node -e ' *)",
+      "Bash(node scripts/prepare-payload.js)",
+      "Bash(powershell -NoProfile -NonInteractive -Command \"Compress-Archive -Path 'c:\\\\Users\\\\Administrator\\\\Desktop\\\\Server-Controller\\\\dist2\\\\win-unpacked\\\\*' -DestinationPath 'c:\\\\Users\\\\Administrator\\\\Desktop\\\\Server-Controller\\\\installer\\\\resources\\\\app.zip' -Force; Write-Host 'Done'; \\(Get-Item 'c:\\\\Users\\\\Administrator\\\\Desktop\\\\Server-Controller\\\\installer\\\\resources\\\\app.zip'\\).Length / 1MB\")",
+      "PowerShell(Get-ChildItem \"C:\\\\Users\\\\Administrator\\\\Desktop\" | Where-Object { $_.Extension -match '\\\\.\\(png|jpg|jpeg|bmp|ico\\)' } | Select-Object Name, Length)"
+    ]
+  }
+}

@@ -1,8 +1,8 @@
 version: 1.0.0
 files:
   - url: ESS-Server-Controller-Setup-1.0.0.exe
-    sha512: b/7nQefM9iWZxtaGmZnAR6kdAmrn3dDY/q4574hUk61Yzk9P6Q7CQSQFZBkcjCv/KCxCI2YEZT2sXJhr5Y9kHw==
-    size: 77026468
+    sha512: qHw/x+PZ8qZhmgKPQ1s2ehLKXvevYRRSH/tpofvh5NovKSYQFjyl8esLesKJCnh9Xdfbi3RvkdIX9/IleiMFVQ==
+    size: 77040929
 path: ESS-Server-Controller-Setup-1.0.0.exe
-sha512: b/7nQefM9iWZxtaGmZnAR6kdAmrn3dDY/q4574hUk61Yzk9P6Q7CQSQFZBkcjCv/KCxCI2YEZT2sXJhr5Y9kHw==
-releaseDate: '2026-04-28T22:47:53.403Z'
+sha512: qHw/x+PZ8qZhmgKPQ1s2ehLKXvevYRRSH/tpofvh5NovKSYQFjyl8esLesKJCnh9Xdfbi3RvkdIX9/IleiMFVQ==
+releaseDate: '2026-04-28T23:22:37.530Z'

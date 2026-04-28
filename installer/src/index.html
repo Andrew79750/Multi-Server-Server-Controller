@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ESS Server Controller Setup</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="layout">
+
+    <!-- ══ SIDEBAR ══════════════════════════════════════════════════════════ -->
+    <aside class="sidebar">
+      <div class="sidebar-top">
+        <div class="brand">
+          <div class="brand-icon">ESS</div>
+          <div class="brand-text">
+            <span class="brand-name">Server Controller</span>
+            <span class="brand-sub">Setup Wizard</span>
+          </div>
+        </div>
+
+        <nav class="stepper">
+          <div class="step-row active" id="sr-0">
+            <div class="step-bullet"><span>1</span></div>
+            <div class="step-meta">
+              <span class="step-title">Welcome</span>
+              <span class="step-desc">Get started</span>
+            </div>
+          </div>
+          <div class="step-line"></div>
+          <div class="step-row" id="sr-1">
+            <div class="step-bullet"><span>2</span></div>
+            <div class="step-meta">
+              <span class="step-title">Options</span>
+              <span class="step-desc">Install location & shortcuts</span>
+            </div>
+          </div>
+          <div class="step-line"></div>
+          <div class="step-row" id="sr-2">
+            <div class="step-bullet"><span>3</span></div>
+            <div class="step-meta">
+              <span class="step-title">Installing</span>
+              <span class="step-desc">Copying files</span>
+            </div>
+          </div>
+          <div class="step-line"></div>
+          <div class="step-row" id="sr-3">
+            <div class="step-bullet"><span>4</span></div>
+            <div class="step-meta">
+              <span class="step-title">Complete</span>
+              <span class="step-desc">Ready to launch</span>
+            </div>
+          </div>
+        </nav>
+      </div>
+
+      <div class="sidebar-footer">
+        <div class="ver-badge">v1.0.0</div>
+        <div class="copy">ESS Core &copy; 2024</div>
+      </div>
+    </aside>
+
+    <!-- ══ MAIN ══════════════════════════════════════════════════════════ -->
+    <main class="content">
+
+      <!-- Title bar -->
+      <div class="titlebar">
+        <div class="titlebar-drag"></div>
+        <div class="titlebar-btns">
+          <button class="tb-btn" id="btn-min" title="Minimize">&#x2013;</button>
+          <button class="tb-btn tb-close" id="btn-close" title="Close">&#x2715;</button>
+        </div>
+      </div>
+
+      <!-- Background accent blobs -->
+      <div class="blob b1"></div>
+      <div class="blob b2"></div>
+
+      <!-- ── Step 0: Welcome ───────────────────────────────────────────── -->
+      <section class="page" id="page-0">
+        <div class="page-inner">
+          <div class="welcome-hero">
+            <div class="hero-icon">
+              <img src="../assets/ess-logo.png" alt="ESS Core" class="hero-logo-img">
+            </div>
+            <h1 class="hero-title">Welcome to<br>ESS Server Controller</h1>
+            <p class="hero-sub">Your Windows VPS Management Dashboard</p>
+          </div>
+
+          <div class="feature-grid">
+            <div class="feat">
+              <div class="feat-icon">&#x1F5A5;</div>
+              <span>Multi-server management</span>
+            </div>
+            <div class="feat">
+              <div class="feat-icon">&#x1F4CA;</div>
+              <span>Real-time monitoring</span>
+            </div>
+            <div class="feat">
+              <div class="feat-icon">&#x1F4E6;</div>
+              <span>Git-powered updates</span>
+            </div>
+            <div class="feat">
+              <div class="feat-icon">&#x1F6E0;</div>
+              <span>Custom server tools</span>
+            </div>
+          </div>
+
+          <div class="page-actions">
+            <button class="btn btn-ghost" id="btn-cancel-0">Cancel</button>
+            <button class="btn btn-primary" id="btn-next-0">Continue &rarr;</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── Step 1: Options ───────────────────────────────────────────── -->
+      <section class="page hidden" id="page-1">
+        <div class="page-inner">
+          <h2 class="page-title">Installation Options</h2>
+          <p class="page-desc">Configure where and how ESS Server Controller will be installed.</p>
+
+          <div class="option-group">
+            <label class="option-label">Installation Location</label>
+            <div class="path-row">
+              <input type="text" id="install-path" class="path-input" placeholder="Select install folder…" readonly>
+              <button class="btn btn-outline" id="btn-browse">Browse&hellip;</button>
+            </div>
+            <div class="path-error hidden" id="path-error"></div>
+          </div>
+
+          <div class="option-group">
+            <label class="option-label">Shortcuts</label>
+            <label class="checkbox-row">
+              <input type="checkbox" id="opt-desktop" checked>
+              <span class="checkmark"></span>
+              <span class="checkbox-text">Create Desktop shortcut</span>
+            </label>
+            <label class="checkbox-row">
+              <input type="checkbox" id="opt-startmenu" checked>
+              <span class="checkmark"></span>
+              <span class="checkbox-text">Create Start Menu shortcut</span>
+            </label>
+          </div>
+
+          <div class="option-group">
+            <label class="option-label">Additional</label>
+            <label class="checkbox-row">
+              <input type="checkbox" id="opt-open" checked>
+              <span class="checkmark"></span>
+              <span class="checkbox-text">Open ESS Server Controller after install</span>
+            </label>
+            <label class="checkbox-row">
+              <input type="checkbox" id="opt-startup">
+              <span class="checkmark"></span>
+              <span class="checkbox-text">Start with Windows <span class="badge-opt">optional</span></span>
+            </label>
+          </div>
+
+          <div class="page-actions">
+            <button class="btn btn-ghost" id="btn-back-1">&larr; Back</button>
+            <button class="btn btn-primary" id="btn-install">Install Now</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── Step 2: Installing ────────────────────────────────────────── -->
+      <section class="page hidden" id="page-2">
+        <div class="page-inner page-inner-installing">
+          <h2 class="page-title">Installing&hellip;</h2>
+          <p class="page-desc" id="install-status">Preparing installation…</p>
+
+          <div class="progress-wrap">
+            <div class="progress-track">
+              <div class="progress-fill" id="progress-fill"></div>
+            </div>
+            <span class="progress-pct" id="progress-pct">0%</span>
+          </div>
+
+          <div class="log-wrap">
+            <div class="log-panel" id="log-panel"></div>
+          </div>
+
+          <div class="install-error hidden" id="install-error-box">
+            <span class="err-icon">&#x26A0;</span>
+            <span id="install-error-text"></span>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── Step 3: Complete ──────────────────────────────────────────── -->
+      <section class="page hidden" id="page-3">
+        <div class="page-inner page-inner-complete">
+          <div class="success-anim">
+            <div class="success-ring"></div>
+            <div class="success-check">&#x2713;</div>
+          </div>
+
+          <h2 class="complete-title">Installation Complete!</h2>
+          <p class="complete-desc">ESS Server Controller is ready to use.</p>
+
+          <div class="install-location-box">
+            <span class="install-loc-label">Installed to</span>
+            <span class="install-loc-path" id="complete-path"></span>
+          </div>
+
+          <div class="page-actions page-actions-complete">
+            <button class="btn btn-outline" id="btn-folder">Open Folder</button>
+            <button class="btn btn-ghost"   id="btn-finish">Finish</button>
+            <button class="btn btn-primary" id="btn-launch">Launch App &rarr;</button>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <script src="installer.js"></script>
+</body>
+</html>

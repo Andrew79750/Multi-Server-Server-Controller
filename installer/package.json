@@ -1,0 +1,52 @@
+{
+  "name": "ess-server-controller-setup",
+  "version": "1.0.0",
+  "description": "Custom installer for ESS Server Controller",
+  "main": "main.js",
+  "author": "ESS",
+  "license": "UNLICENSED",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron .",
+    "dist": "electron-builder --win --x64"
+  },
+  "dependencies": {
+    "extract-zip": "^2.0.1"
+  },
+  "devDependencies": {
+    "electron": "^30.5.1",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.ess.servercontroller.setup",
+    "productName": "ESS Server Controller Setup",
+    "directories": {
+      "output": "../dist-installer"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "src/**/*",
+      "backend/**/*",
+      "assets/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "resources/app.zip",
+        "to": "app.zip"
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "portable",
+          "arch": ["x64"]
+        }
+      ],
+      "icon": "assets/icon.ico",
+      "artifactName": "ESS-Server-Controller-Setup-${version}.exe"
+    }
+  }
+}

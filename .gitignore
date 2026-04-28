@@ -1,3 +1,8 @@
 node_modules/
-dist-unpacked/
+dist/
+dist*/
+dist2/
+dist-installer/
 win-unpacked/
+installer/node_modules/
+installer/resources/app.zip
