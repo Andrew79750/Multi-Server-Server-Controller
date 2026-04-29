@@ -10,7 +10,8 @@
     "start": "electron .",
     "dev": "electron .",
     "build": "electron-builder",
-    "dist": "electron-builder --win --x64",
+    "dist": "npm run build:payload",
+    "build:payload": "electron-builder --dir --win --x64 && node scripts/prepare-payload-zip.js",
     "pack:app": "electron-builder --dir --win --x64",
     "installer:install": "cd installer && npm install",
     "installer:dev": "cd installer && npm start",
@@ -42,14 +43,13 @@
     "win": {
       "target": [
         {
-          "target": "portable",
+          "target": "dir",
           "arch": [
             "x64"
           ]
         }
       ],
-      "icon": "src/assets/icon.ico",
-      "artifactName": "ESS-Server-Controller-App-${version}.${ext}"
+      "icon": "src/assets/icon.ico"
     },
     "publish": [
       {

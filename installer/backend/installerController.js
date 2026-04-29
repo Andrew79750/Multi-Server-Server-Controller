@@ -1,16 +1,11 @@
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
-const https = require('https');
-const http = require('http');
 const { spawn } = require('child_process');
+const extractZip = require('extract-zip');
 
-const GITHUB_OWNER = 'Andrew79750';
-const GITHUB_REPO = 'Multi-Server-Server-Controller';
 const APP_NAME = 'ESS Server Controller';
-const APP_ASSET_RE = /^ESS-Server-Controller-App-.+\.exe$/i;
 const EXTERNAL_FOLDERS = ['scripts', 'configs', 'data', 'logs'];
-const GITHUB_EXTERNAL_PATHS = ['scripts'];
 
 class InstallerController {
   constructor(win) {
@@ -37,7 +32,7 @@ class InstallerController {
   async install(opts) {
     this.opts = opts;
     const { installPath } = opts;
-    const appExePath = path.join(installPath, `${APP_NAME}.exe`);
+    const payloadZip = this.getBundledPayloadPath();
 
     try {
       this.progress(5, 'Preparing installation folder...');
@@ -48,30 +43,20 @@ class InstallerController {
       await this.killRunningApp();
       await this.sleep(1800);
 
-      this.progress(12, 'Fetching latest release from GitHub...');
-      this.log('Contacting GitHub API...');
-      const apiUrl = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/releases/latest`;
-      const release = await this.fetchJSON(apiUrl);
-
-      const asset = this.pickAppAsset(release.assets || []);
-      if (!asset) {
+      this.progress(12, 'Loading bundled Server Manager payload...');
+      if (!fs.existsSync(payloadZip)) {
         throw new Error(
-          `No Server Manager app EXE found in release ${release.tag_name || '(unknown)'}.\n` +
-          'Upload an asset named like "ESS-Server-Controller-App-1.0.0.exe".'
+          `Bundled payload was not found.\nExpected: ${payloadZip}\nRun "npm run build:full" to rebuild the installer.`
         );
       }
-      this.log(`Found release ${release.tag_name || 'latest'} - ${asset.name} (${(asset.size / 1048576).toFixed(1)} MB)`);
+      this.log(`Using bundled payload: ${payloadZip}`);
 
-      this.progress(15, 'Starting download...');
-      await this.downloadFile(asset.browser_download_url, appExePath);
-      this.log(`Installed app executable: ${appExePath}`);
+      this.progress(72, 'Extracting Server Manager files...');
+      await this.extractPayload(payloadZip, installPath);
 
-      this.progress(76, 'Creating external manager folders...');
+      this.progress(76, 'Creating runtime folders...');
       const externalRoot = this.createExternalFolders(installPath);
-      this.log(`External manager root: ${externalRoot}`);
-
-      this.progress(78, 'Downloading external files from GitHub...');
-      await this.downloadExternalPaths(release.tag_name || 'main', installPath);
+      this.log(`Install root: ${externalRoot}`);
 
       if (opts.desktopShortcut) {
         this.progress(80, 'Creating desktop shortcut...');
@@ -105,98 +90,28 @@ class InstallerController {
     }
   }
 
-  fetchJSON(url) {
-    return new Promise((resolve, reject) => {
-      https.get(url, {
-        headers: {
-          'User-Agent': 'ESS-Installer/1.0.0',
-          Accept: 'application/vnd.github.v3+json',
-        },
-      }, res => {
-        if (res.statusCode !== 200) {
-          res.resume();
-          reject(new Error(`GitHub API returned HTTP ${res.statusCode}. Check your internet connection.`));
-          return;
+  getBundledPayloadPath() {
+    return path.join(__dirname, '..', 'resources', 'payload.zip');
+  }
+
+  async extractPayload(zipPath, installPath) {
+    let current = 0;
+    await extractZip(zipPath, {
+      dir: installPath,
+      onEntry: (entry, zipfile) => {
+        current++;
+        if (current % 20 === 0 || current === 1) {
+          const pct = 72 + (current / Math.max(zipfile.entryCount, 1)) * 4;
+          this.progress(Math.min(76, pct), `Extracting... ${current}/${zipfile.entryCount}`);
         }
-
-        let data = '';
-        res.on('data', chunk => {
-          data += chunk.toString();
-        });
-        res.on('end', () => {
-          try {
-            resolve(JSON.parse(data));
-          } catch (_) {
-            reject(new Error('Invalid response from GitHub API.'));
-          }
-        });
-        res.on('error', reject);
-      }).on('error', err => reject(new Error(`Cannot reach GitHub: ${err.message}`)));
+      },
     });
-  }
 
-  pickAppAsset(assets) {
-    return assets.find(asset => APP_ASSET_RE.test(asset.name || ''));
-  }
-
-  downloadFile(url, destPath) {
-    return new Promise((resolve, reject) => {
-      const file = fs.createWriteStream(destPath);
-      let lastLoaded = 0;
-      let lastTime = Date.now();
-
-      const fail = (error) => {
-        file.destroy();
-        fs.promises.unlink(destPath).catch(() => {});
-        reject(error);
-      };
-
-      const fetch = (nextUrl) => {
-        const mod = nextUrl.startsWith('https') ? https : http;
-        mod.get(nextUrl, { headers: { 'User-Agent': 'ESS-Installer/1.0.0' } }, (res) => {
-          if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-            res.resume();
-            fetch(res.headers.location);
-            return;
-          }
-
-          if (res.statusCode !== 200) {
-            res.resume();
-            fail(new Error(`Download failed: HTTP ${res.statusCode}`));
-            return;
-          }
-
-          const total = parseInt(res.headers['content-length'] || '0', 10);
-          let loaded = 0;
-
-          res.on('data', chunk => {
-            loaded += chunk.length;
-            const now = Date.now();
-            const elapsed = (now - lastTime) / 1000;
-
-            if (elapsed >= 0.5 && total > 0) {
-              const speed = (loaded - lastLoaded) / elapsed;
-              lastLoaded = loaded;
-              lastTime = now;
-              const pct = 15 + (loaded / total) * 55;
-              const loadedMB = (loaded / 1048576).toFixed(1);
-              const totalMB = (total / 1048576).toFixed(1);
-              const speedStr = speed >= 1048576
-                ? `${(speed / 1048576).toFixed(1)} MB/s`
-                : `${(speed / 1024).toFixed(0)} KB/s`;
-              this.progress(Math.min(70, pct), `Downloading... ${loadedMB} / ${totalMB} MB - ${speedStr}`);
-            }
-          });
-
-          res.pipe(file);
-          res.on('error', fail);
-          file.on('finish', () => file.close(resolve));
-        }).on('error', err => fail(new Error(`Download error: ${err.message}`)));
-      };
-
-      file.on('error', fail);
-      fetch(url);
-    });
+    const rootExe = path.join(installPath, `${APP_NAME}.exe`);
+    if (!fs.existsSync(rootExe)) {
+      throw new Error(`Payload extracted, but ${APP_NAME}.exe was not found.`);
+    }
+    this.log('Payload extracted successfully.');
   }
 
   createExternalFolders(installPath) {
@@ -224,42 +139,6 @@ class InstallerController {
     }
 
     return externalRoot;
-  }
-
-  async downloadExternalPaths(ref, installPath) {
-    for (const repoPath of GITHUB_EXTERNAL_PATHS) {
-      const destPath = path.join(installPath, repoPath);
-      try {
-        await this.downloadGitHubContents(repoPath, destPath, ref);
-      } catch (error) {
-        if (/HTTP 404/.test(error.message)) {
-          this.log(`No GitHub folder found for ${repoPath}; created an empty local folder.`);
-          fs.mkdirSync(destPath, { recursive: true });
-          continue;
-        }
-        throw error;
-      }
-    }
-  }
-
-  async downloadGitHubContents(repoPath, destPath, ref) {
-    const encodedPath = repoPath.split('/').map(encodeURIComponent).join('/');
-    const encodedRef = encodeURIComponent(ref || 'main');
-    const url = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${encodedPath}?ref=${encodedRef}`;
-    const entry = await this.fetchJSON(url);
-
-    if (Array.isArray(entry)) {
-      fs.mkdirSync(destPath, { recursive: true });
-      for (const child of entry) {
-        await this.downloadGitHubContents(child.path, path.join(destPath, child.name), ref);
-      }
-      return;
-    }
-
-    if (entry.type !== 'file' || !entry.download_url) return;
-    fs.mkdirSync(path.dirname(destPath), { recursive: true });
-    await this.downloadFile(entry.download_url, destPath);
-    this.log(`Downloaded ${entry.path}`);
   }
 
   removeDesktopShortcut() {

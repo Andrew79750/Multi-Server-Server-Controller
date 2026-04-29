@@ -38,22 +38,25 @@ Build both:
 npm run build:full
 ```
 
-## GitHub Release Assets
+## Distribution
 
-Upload both files to the GitHub release:
+The final customer-facing file is the custom themed installer:
 
 ```text
-ESS-Server-Controller-App-1.0.0.exe
 ESS-Server-Controller-Setup-1.0.0.exe
 ```
 
-The custom themed installer downloads `ESS-Server-Controller-App-*.exe` from the latest GitHub release and saves it into the user's chosen install folder as:
+That one EXE contains the Server Manager payload. When opened, it extracts the app files into the user's chosen install folder.
 
 ```text
 ESS Server Controller.exe
+chrome_100_percent.pak
+ffmpeg.dll
+resources\
+logs\
 ```
 
-It also downloads external runtime folders such as `scripts` from the same GitHub ref into the chosen install path.
+The ZIP is only an internal installer resource. Users receive and open one installer EXE.
 
 ## External Files
 
@@ -63,7 +66,7 @@ The installed app uses the chosen install folder as its external runtime root, u
 %LOCALAPPDATA%\Programs\ESS-Multi-Server-Manager
 ```
 
-Editable external folders live directly inside that root:
+Runtime folders live directly inside that root:
 
 ```text
 scripts\
