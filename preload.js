@@ -11,6 +11,8 @@ contextBridge.exposeInMainWorld("essApi", {
   getAppState: () => invoke("app:get-state"),
   createDesktopShortcut: () => invoke("app:create-desktop-shortcut"),
   openInstallFolder: () => invoke("app:open-install-folder"),
+  getExternalFiles: () => invoke("external:get"),
+  openExternalRoot: () => invoke("external:open-root"),
   setStartWithWindows: (enabled) => invoke("app:set-start-with-windows", enabled),
   getServers: () => invoke("servers:get"),
   startServer: (id) => invoke("servers:start", id),

@@ -46,7 +46,7 @@ ipcMain.handle('window:close',    () => app.quit());
 
 // ── Install-path helpers ──────────────────────────────────────────────────────
 ipcMain.handle('installer:defaultPath', () =>
-  path.join(os.homedir(), 'AppData', 'Local', 'Programs', 'ESS Server Controller')
+  path.join(os.homedir(), 'AppData', 'Local', 'Programs', 'ESS-Multi-Server-Manager')
 );
 
 ipcMain.handle('installer:browse', async () => {
@@ -57,8 +57,8 @@ ipcMain.handle('installer:browse', async () => {
   });
   if (result.canceled || !result.filePaths.length) return null;
   let chosen = result.filePaths[0];
-  if (!chosen.toLowerCase().endsWith('ess server controller')) {
-    chosen = path.join(chosen, 'ESS Server Controller');
+  if (!chosen.toLowerCase().endsWith('ess-multi-server-manager')) {
+    chosen = path.join(chosen, 'ESS-Multi-Server-Manager');
   }
   return chosen;
 });

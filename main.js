@@ -6,6 +6,7 @@ const Logger = require("./backend/logger");
 const ProcessManager = require("./backend/processManager");
 const GitHubUpdater = require("./backend/githubUpdater");
 const AppUpdater = require("./backend/appUpdater");
+const ExternalFiles = require("./backend/externalFiles");
 const { getSystemInfo } = require("./backend/systemInfo");
 
 let mainWindow = null;
@@ -14,6 +15,7 @@ let logger = null;
 let processManager = null;
 let githubUpdater = null;
 let appUpdater = null;
+let externalFiles = null;
 
 function send(channel, payload) {
   if (mainWindow && !mainWindow.isDestroyed()) {
@@ -43,8 +45,13 @@ function getAppState() {
     system: getSystemInfo(),
     servers: processManager.getServers(),
     github: githubUpdater.getState(),
+    external: externalFiles.getState(),
     logs: logger.getLogs("all").slice(-120)
   };
+}
+
+function getInstallBasePath() {
+  return app.isPackaged ? path.dirname(process.execPath) : __dirname;
 }
 
 function createWindow() {
@@ -113,9 +120,15 @@ function registerIpc() {
     return shortcutPath;
   });
   ipcMain.handle("app:open-install-folder", async () => {
-    const folder = app.isPackaged ? path.dirname(process.execPath) : __dirname;
+    const folder = getInstallBasePath();
     await shell.openPath(folder);
     return folder;
+  });
+  ipcMain.handle("external:get", () => externalFiles.getState());
+  ipcMain.handle("external:open-root", async () => {
+    const state = externalFiles.getState();
+    await shell.openPath(state.rootPath);
+    return state.rootPath;
   });
   ipcMain.handle("app:set-start-with-windows", (_event, enabled) => {
     app.setLoginItemSettings({
@@ -223,6 +236,9 @@ app.whenReady().then(() => {
 
   appUpdater = new AppUpdater(configManager, logger, app.getVersion());
   appUpdater.init();
+
+  externalFiles = new ExternalFiles(getInstallBasePath());
+  externalFiles.init();
 
   logger.on("log", (entry) => send("log:new", entry));
   logger.on("cleared", () => send("logs:cleared"));

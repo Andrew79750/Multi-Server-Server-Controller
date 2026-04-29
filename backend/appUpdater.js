@@ -8,7 +8,7 @@ function normalizeVersion(value) {
 
 function pickInstallerAssets(assets = []) {
   return assets
-    .filter((asset) => /\.(exe|msi|zip)$/i.test(asset.name || ""))
+    .filter((asset) => /\.(exe|msi)$/i.test(asset.name || ""))
     .map((asset) => ({
       name: asset.name,
       size: asset.size,

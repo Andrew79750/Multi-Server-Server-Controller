@@ -74,9 +74,30 @@
         </div>
       </div>
 
-      <!-- Background accent blobs -->
+      <!-- Animated background canvas -->
+      <canvas id="bg-canvas"></canvas>
+      <!-- Legacy blob divs kept for markup compat -->
       <div class="blob b1"></div>
       <div class="blob b2"></div>
+      <div class="blob b3"></div>
+
+      <!-- Animated error popup (shown on any fatal error) -->
+      <div class="error-overlay hidden" id="error-overlay">
+        <div class="error-popup" id="error-popup">
+          <div class="ep-icon-wrap">
+            <svg class="ep-svg" viewBox="0 0 64 56" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M32 4L60 52H4L32 4Z" fill="rgba(239,68,68,0.18)" stroke="#ef4444" stroke-width="3.5" stroke-linejoin="round"/>
+              <rect x="29.5" y="20" width="5" height="16" rx="2.5" fill="#ef4444"/>
+              <circle cx="32" cy="42" r="3" fill="#ef4444"/>
+            </svg>
+          </div>
+          <div class="ep-body">
+            <div class="ep-title">Installation Error</div>
+            <div class="ep-msg" id="ep-msg"></div>
+          </div>
+          <button class="btn btn-outline ep-close" id="ep-close">Dismiss</button>
+        </div>
+      </div>
 
       <!-- ── Step 0: Welcome ───────────────────────────────────────────── -->
       <section class="page" id="page-0">

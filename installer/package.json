@@ -11,9 +11,7 @@
     "dev": "electron .",
     "dist": "electron-builder --win --x64"
   },
-  "dependencies": {
-    "extract-zip": "^2.0.1"
-  },
+  "dependencies": {},
   "devDependencies": {
     "electron": "^30.5.1",
     "electron-builder": "^24.13.3"
@@ -31,12 +29,6 @@
       "backend/**/*",
       "assets/**/*",
       "package.json"
-    ],
-    "extraResources": [
-      {
-        "from": "resources/app.zip",
-        "to": "app.zip"
-      }
     ],
     "win": {
       "target": [

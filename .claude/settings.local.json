@@ -19,7 +19,8 @@
       "Bash(node -e ' *)",
       "Bash(node scripts/prepare-payload.js)",
       "Bash(powershell -NoProfile -NonInteractive -Command \"Compress-Archive -Path 'c:\\\\Users\\\\Administrator\\\\Desktop\\\\Server-Controller\\\\dist2\\\\win-unpacked\\\\*' -DestinationPath 'c:\\\\Users\\\\Administrator\\\\Desktop\\\\Server-Controller\\\\installer\\\\resources\\\\app.zip' -Force; Write-Host 'Done'; \\(Get-Item 'c:\\\\Users\\\\Administrator\\\\Desktop\\\\Server-Controller\\\\installer\\\\resources\\\\app.zip'\\).Length / 1MB\")",
-      "PowerShell(Get-ChildItem \"C:\\\\Users\\\\Administrator\\\\Desktop\" | Where-Object { $_.Extension -match '\\\\.\\(png|jpg|jpeg|bmp|ico\\)' } | Select-Object Name, Length)"
+      "PowerShell(Get-ChildItem \"C:\\\\Users\\\\Administrator\\\\Desktop\" | Where-Object { $_.Extension -match '\\\\.\\(png|jpg|jpeg|bmp|ico\\)' } | Select-Object Name, Length)",
+      "Bash(powershell -NoProfile -NonInteractive -Command \"Compress-Archive -Path 'c:\\\\Users\\\\Administrator\\\\Desktop\\\\Server-Controller\\\\dist2\\\\win-unpacked\\\\*' -DestinationPath 'c:\\\\Users\\\\Administrator\\\\Desktop\\\\Server-Controller\\\\app.zip' -Force; Write-Host \\('Done: ' + [math]::Round\\(\\(Get-Item c:\\\\Users\\\\Administrator\\\\Desktop\\\\Server-Controller\\\\app.zip\\).Length/1MB,1\\) + ' MB'\\)\")"
     ]
   }
 }

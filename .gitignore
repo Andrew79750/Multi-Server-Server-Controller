@@ -1,8 +1,6 @@
 node_modules/
-dist/
 dist*/
-dist2/
-dist-installer/
 win-unpacked/
-installer/node_modules/
-installer/resources/app.zip
+
+# Custom installer — kept separate, not part of the open-source repo
+installer/

@@ -6,7 +6,8 @@ const state = {
   logs: [],
   theme: "dark",
   notificationTimeout: 4500,
-  startWithWindows: false
+  startWithWindows: false,
+  external: null
 };
 
 const $ = (selector) => document.querySelector(selector);
@@ -221,6 +222,7 @@ function renderSettings() {
   $("#checkUpdatesOnStartup").checked = updateSettings.checkOnStartup !== false;
   $("#notifyOnUpdate").checked = updateSettings.notifyOnUpdate !== false;
   $("#updateInterval").value = updateSettings.checkIntervalMinutes || 30;
+  $("#externalRootPath").textContent = shortPath(state.external?.rootPath);
   $("#settingsServers").innerHTML = state.servers.map((server) => `
     <div class="settings-server" data-settings-server="${server.id}">
       <input value="${escapeHtml(server.name)}" data-field="name" />
@@ -298,6 +300,10 @@ function bindEvents() {
 
   $("#openInstallFolder").addEventListener("click", async () => {
     await safeAction(() => window.essApi.openInstallFolder(), "Install folder opened");
+  });
+
+  $("#openExternalRoot").addEventListener("click", async () => {
+    await safeAction(() => window.essApi.openExternalRoot(), "External files opened");
   });
 
   $("#startWithWindows").addEventListener("change", async (event) => {
@@ -410,6 +416,7 @@ async function init() {
   state.github = state.app.github || { repos: [] };
   state.updates = state.app.appUpdates || null;
   state.logs = state.app.logs || [];
+  state.external = state.app.external || null;
   state.notificationTimeout = state.app.notificationTimeout || 4500;
   state.startWithWindows = Boolean(state.app.startWithWindows);
   setTheme(state.app.theme || "dark");
@@ -446,6 +453,7 @@ async function init() {
     state.servers = appState.servers || state.servers;
     state.github = appState.github || state.github;
     state.updates = appState.appUpdates || state.updates;
+    state.external = appState.external || state.external;
     state.notificationTimeout = appState.notificationTimeout || state.notificationTimeout;
     state.startWithWindows = Boolean(appState.startWithWindows);
     setTheme(appState.theme || state.theme);
