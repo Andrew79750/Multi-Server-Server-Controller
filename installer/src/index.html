@@ -99,6 +99,28 @@
         </div>
       </div>
 
+      <!-- Installed-version warning and update check -->
+      <div class="update-overlay hidden" id="update-overlay">
+        <div class="update-popup" id="update-popup">
+          <div class="up-icon-wrap" id="up-icon-wrap">
+            <svg class="up-warning-icon" viewBox="0 0 72 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M36 6L66 58H6L36 6Z" fill="rgba(245,158,11,0.18)" stroke="#f59e0b" stroke-width="3.5" stroke-linejoin="round"/>
+              <rect x="33.5" y="23" width="5" height="18" rx="2.5" fill="#f59e0b"/>
+              <circle cx="36" cy="49" r="3.2" fill="#f59e0b"/>
+            </svg>
+            <div class="up-spinner hidden" id="up-spinner"></div>
+          </div>
+          <div class="up-body">
+            <div class="up-title" id="up-title">Existing Installation Detected</div>
+            <div class="up-msg" id="up-msg"></div>
+          </div>
+          <div class="up-actions" id="up-actions">
+            <button class="btn btn-outline" id="up-secondary">Not now</button>
+            <button class="btn btn-primary" id="up-primary">Search Updates</button>
+          </div>
+        </div>
+      </div>
+
       <!-- ── Step 0: Welcome ───────────────────────────────────────────── -->
       <section class="page" id="page-0">
         <div class="page-inner">

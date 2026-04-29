@@ -4,6 +4,9 @@
 let currentStep   = 0;
 let installPath   = '';
 let completedPath = '';
+let installedInfo = null;
+let pendingInstallOptions = null;
+let installWarningDismissed = false;
 
 const $ = id => document.getElementById(id);
 
@@ -108,6 +111,119 @@ function showErrorPopup(msg) {
 }
 function hideErrorPopup() { $('error-overlay').classList.add('hidden'); }
 
+// Update warning popup
+function showUpdatePopup({ title, message, mode = 'warning', primaryText = 'Search Updates', secondaryText = 'Not now', onPrimary, onSecondary }) {
+  $('up-title').textContent = title;
+  $('up-msg').textContent = message;
+  $('up-primary').textContent = primaryText;
+  $('up-secondary').textContent = secondaryText;
+  $('up-primary').disabled = mode === 'checking';
+  $('up-secondary').disabled = mode === 'checking';
+  $('up-spinner').classList.toggle('hidden', mode !== 'checking');
+  $('up-icon-wrap').querySelector('.up-warning-icon').classList.toggle('hidden', mode === 'checking');
+
+  $('up-primary').onclick = onPrimary || hideUpdatePopup;
+  $('up-secondary').onclick = onSecondary || hideUpdatePopup;
+
+  const overlay = $('update-overlay');
+  overlay.classList.remove('hidden');
+  const popup = $('update-popup');
+  popup.style.animation = 'none';
+  void popup.offsetWidth;
+  popup.style.animation = '';
+}
+
+function hideUpdatePopup() {
+  $('update-overlay').classList.add('hidden');
+}
+
+function versionLabel(version) {
+  return version ? `v${version}` : 'an unknown version';
+}
+
+async function refreshInstalledInfo(pathToCheck = installPath) {
+  installedInfo = await window.api.installedInfo(pathToCheck);
+  return installedInfo;
+}
+
+function showInstalledWarning(info) {
+  showUpdatePopup({
+    title: 'Existing Installation Detected',
+    message: `ESS Server Controller ${versionLabel(info.version)} is already installed. Would you like to search for updates?`,
+    primaryText: 'Yes, Check',
+    secondaryText: 'No',
+    onPrimary: () => checkForUpdates(info),
+    onSecondary: () => {
+      installWarningDismissed = true;
+      pendingInstallOptions = null;
+      hideUpdatePopup();
+    },
+  });
+}
+
+async function checkForUpdates(info) {
+  showUpdatePopup({
+    title: 'Checking for Updates',
+    message: 'Looking for the newest ESS Server Controller release...',
+    mode: 'checking',
+  });
+
+  try {
+    const result = await window.api.checkUpdates(info.version);
+    if (!result.updateAvailable) {
+      showUpdatePopup({
+        title: 'No Updates Found',
+        message: `You already have ${versionLabel(info.version)} installed. No newer release is available right now.`,
+        primaryText: 'OK',
+        secondaryText: 'Close',
+        onPrimary: hideUpdatePopup,
+        onSecondary: hideUpdatePopup,
+      });
+      pendingInstallOptions = null;
+      return;
+    }
+
+    if (!result.payloadAvailable) {
+      showUpdatePopup({
+        title: 'Update Found',
+        message: `${versionLabel(result.latestVersion)} is available, but no install payload was attached to the release yet.`,
+        primaryText: 'OK',
+        secondaryText: 'Close',
+        onPrimary: hideUpdatePopup,
+        onSecondary: hideUpdatePopup,
+      });
+      return;
+    }
+
+    showUpdatePopup({
+      title: 'Update Available',
+      message: `ESS Server Controller ${versionLabel(result.latestVersion)} is available. Would you like to upgrade to ${versionLabel(result.latestVersion)}?`,
+      primaryText: 'Upgrade',
+      secondaryText: 'Later',
+      onPrimary: () => {
+        const opts = pendingInstallOptions || buildInstallOptions();
+        installWarningDismissed = true;
+        pendingInstallOptions = null;
+        hideUpdatePopup();
+        beginInstall(opts);
+      },
+      onSecondary: () => {
+        pendingInstallOptions = null;
+        hideUpdatePopup();
+      },
+    });
+  } catch (error) {
+    showUpdatePopup({
+      title: 'Update Check Failed',
+      message: error.message || String(error),
+      primaryText: 'OK',
+      secondaryText: 'Close',
+      onPrimary: hideUpdatePopup,
+      onSecondary: hideUpdatePopup,
+    });
+  }
+}
+
 // ── Step navigation ────────────────────────────────────────────────────────
 function goTo(step) {
   const pages = ['page-0','page-1','page-2','page-3'];
@@ -169,6 +285,9 @@ async function init() {
 
   installPath = await window.api.defaultPath();
   $('install-path').value = installPath;
+  refreshInstalledInfo().then(info => {
+    if (info.installed) showInstalledWarning(info);
+  }).catch(() => {});
 
   $('btn-min').addEventListener('click',   () => window.api.minimize());
   $('btn-close').addEventListener('click', () => window.api.close());
@@ -179,9 +298,16 @@ async function init() {
 
   $('btn-browse').addEventListener('click', async () => {
     const chosen = await window.api.browse();
-    if (chosen) { installPath = chosen; $('install-path').value = chosen; $('path-error').classList.add('hidden'); }
+    if (chosen) {
+      installPath = chosen;
+      $('install-path').value = chosen;
+      $('path-error').classList.add('hidden');
+      installWarningDismissed = false;
+      const info = await refreshInstalledInfo(chosen);
+      if (info.installed) showInstalledWarning(info);
+    }
   });
-  $('install-path').addEventListener('input', e => { installPath = e.target.value; });
+  $('install-path').addEventListener('input', e => { installPath = e.target.value; installWarningDismissed = false; });
   $('btn-back-1').addEventListener('click', () => goTo(0));
   $('btn-install').addEventListener('click', startInstall);
 
@@ -205,17 +331,34 @@ async function startInstall() {
   const { ok, error } = await window.api.validatePath(trimmed);
   if (!ok) { showPathError(error); return; }
 
-  const opts = {
-    installPath:       trimmed,
+  const opts = buildInstallOptions(trimmed);
+  const info = await refreshInstalledInfo(trimmed);
+  if (info.installed && !installWarningDismissed) {
+    pendingInstallOptions = opts;
+    showInstalledWarning(info);
+    return;
+  }
+
+  goTo(2);
+  setProgress(0, 'Starting installation…');
+  addLog('Installation started…');
+  window.api.startInstall(opts);
+}
+
+function buildInstallOptions(pathOverride = installPath.trim()) {
+  return {
+    installPath:       pathOverride,
     desktopShortcut:   $('opt-desktop').checked,
     startMenuShortcut: $('opt-startmenu').checked,
     openAfterInstall:  $('opt-open').checked,
     startWithWindows:  $('opt-startup').checked,
   };
+}
 
+function beginInstall(opts) {
   goTo(2);
-  setProgress(0, 'Starting installation…');
-  addLog('Installation started…');
+  setProgress(0, 'Starting installationâ€¦');
+  addLog('Installation startedâ€¦');
   window.api.startInstall(opts);
 }
 

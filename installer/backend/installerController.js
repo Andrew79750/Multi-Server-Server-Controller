@@ -9,7 +9,38 @@ const APP_NAME = 'ESS Server Controller';
 const EXTERNAL_FOLDERS = ['scripts', 'configs', 'data', 'logs'];
 const RELEASE_OWNER = 'Andrew79750';
 const RELEASE_REPO = 'Multi-Server-Server-Controller';
-const RELEASE_API = `https://api.github.com/repos/${RELEASE_OWNER}/${RELEASE_REPO}/releases/latest`;
+const RELEASE_TAG = process.env.ESS_RELEASE_TAG || 'BETA';
+const RELEASE_BY_TAG_API = `https://api.github.com/repos/${RELEASE_OWNER}/${RELEASE_REPO}/releases/tags/${encodeURIComponent(RELEASE_TAG)}`;
+const LATEST_RELEASE_API = `https://api.github.com/repos/${RELEASE_OWNER}/${RELEASE_REPO}/releases/latest`;
+
+function normalizeVersion(value) {
+  return String(value || '').trim().replace(/^v/i, '');
+}
+
+function compareVersions(left, right) {
+  const a = normalizeVersion(left).split('.').map(part => Number.parseInt(part, 10) || 0);
+  const b = normalizeVersion(right).split('.').map(part => Number.parseInt(part, 10) || 0);
+  for (let i = 0; i < Math.max(a.length, b.length); i++) {
+    const diff = (a[i] || 0) - (b[i] || 0);
+    if (diff !== 0) return diff;
+  }
+  return 0;
+}
+
+function versionFromRelease(release) {
+  const candidates = [
+    release.name,
+    release.tag_name,
+    ...(release.assets || []).map(asset => asset.name),
+  ];
+
+  for (const value of candidates) {
+    const match = String(value || '').match(/v?(\d+\.\d+\.\d+(?:[-+][a-z0-9.-]+)?)/i);
+    if (match) return normalizeVersion(match[1]);
+  }
+
+  return normalizeVersion(release.tag_name);
+}
 
 class InstallerController {
   constructor(win) {
@@ -129,14 +160,57 @@ class InstallerController {
     return preferred || fallback || null;
   }
 
+  async getRelease() {
+    try {
+      return await this.requestJson(RELEASE_BY_TAG_API);
+    } catch (error) {
+      this.log?.(`Tagged release lookup failed (${error.message}); trying latest stable release...`);
+      return this.requestJson(LATEST_RELEASE_API);
+    }
+  }
+
+  getInstalledInfo(installPath) {
+    const exePath = path.join(installPath, `${APP_NAME}.exe`);
+    const packagePath = path.join(installPath, 'resources', 'app', 'package.json');
+    const installed = fs.existsSync(exePath);
+
+    let version = '';
+    if (fs.existsSync(packagePath)) {
+      try {
+        version = normalizeVersion(JSON.parse(fs.readFileSync(packagePath, 'utf8')).version);
+      } catch {
+        version = '';
+      }
+    }
+
+    return { installed, version, installPath, exePath, packagePath };
+  }
+
+  async checkForUpdates(currentVersion) {
+    const release = await this.getRelease();
+    const latestVersion = versionFromRelease(release);
+    const asset = this.pickPayloadAsset(release.assets);
+
+    return {
+      currentVersion: normalizeVersion(currentVersion),
+      latestVersion,
+      releaseName: release.name || release.tag_name || '',
+      tagName: release.tag_name || '',
+      releaseUrl: release.html_url || '',
+      updateAvailable: Boolean(latestVersion && compareVersions(latestVersion, currentVersion) > 0),
+      payloadAvailable: Boolean(asset?.browser_download_url),
+    };
+  }
+
   async downloadReleasePayload() {
-    this.log(`Reading latest release from ${RELEASE_OWNER}/${RELEASE_REPO}...`);
-    const release = await this.requestJson(RELEASE_API);
+    this.log(`Reading ${RELEASE_TAG} release from ${RELEASE_OWNER}/${RELEASE_REPO}...`);
+    const release = await this.getRelease();
+
     const asset = this.pickPayloadAsset(release.assets);
 
     if (!asset?.browser_download_url) {
       throw new Error(
-        'No payload ZIP was found on the latest GitHub release. Upload a ZIP asset with "payload" in its name.'
+        `No payload ZIP was found on the ${release.tag_name || 'selected'} GitHub release. Upload a ZIP asset with "payload" in its name.`
       );
     }
 

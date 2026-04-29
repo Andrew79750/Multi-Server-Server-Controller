@@ -27,14 +27,12 @@ function createWindow() {
     },
   });
 
+  const InstallerController = require('./backend/installerController');
+  controller = new InstallerController(mainWindow);
+
   mainWindow.loadFile(path.join(__dirname, 'src', 'index.html'));
   mainWindow.once('ready-to-show', () => mainWindow.show());
   mainWindow.on('closed', () => { mainWindow = null; });
-
-  mainWindow.webContents.once('did-finish-load', () => {
-    const InstallerController = require('./backend/installerController');
-    controller = new InstallerController(mainWindow);
-  });
 }
 
 app.whenReady().then(createWindow);
@@ -69,6 +67,16 @@ ipcMain.handle('installer:validatePath', (_, p) => {
   // Basic safety: must be an absolute path
   if (!path.isAbsolute(p)) return { ok: false, error: 'Path must be absolute.' };
   return { ok: true };
+});
+
+ipcMain.handle('installer:installedInfo', (_, installPath) => {
+  if (!controller) return { installed: false, version: '', installPath };
+  return controller.getInstalledInfo(installPath);
+});
+
+ipcMain.handle('installer:checkUpdates', async (_, currentVersion) => {
+  if (!controller) throw new Error('Installer is still starting. Please try again.');
+  return controller.checkForUpdates(currentVersion);
 });
 
 // ── Install ───────────────────────────────────────────────────────────────────

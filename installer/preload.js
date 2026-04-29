@@ -9,6 +9,8 @@ contextBridge.exposeInMainWorld('api', {
   defaultPath:  ()  => ipcRenderer.invoke('installer:defaultPath'),
   browse:       ()  => ipcRenderer.invoke('installer:browse'),
   validatePath: (p) => ipcRenderer.invoke('installer:validatePath', p),
+  installedInfo: (p) => ipcRenderer.invoke('installer:installedInfo', p),
+  checkUpdates:  (version) => ipcRenderer.invoke('installer:checkUpdates', version),
 
   // Install
   startInstall: (opts) => ipcRenderer.invoke('installer:start', opts),
