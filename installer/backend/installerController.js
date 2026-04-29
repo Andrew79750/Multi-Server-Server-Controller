@@ -1,11 +1,15 @@
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
+const https = require('https');
 const { spawn } = require('child_process');
 const extractZip = require('extract-zip');
 
 const APP_NAME = 'ESS Server Controller';
 const EXTERNAL_FOLDERS = ['scripts', 'configs', 'data', 'logs'];
+const RELEASE_OWNER = 'Andrew79750';
+const RELEASE_REPO = 'Multi-Server-Server-Controller';
+const RELEASE_API = `https://api.github.com/repos/${RELEASE_OWNER}/${RELEASE_REPO}/releases/latest`;
 
 class InstallerController {
   constructor(win) {
@@ -32,7 +36,7 @@ class InstallerController {
   async install(opts) {
     this.opts = opts;
     const { installPath } = opts;
-    const payloadZip = this.getBundledPayloadPath();
+    let payloadZip = null;
 
     try {
       this.progress(5, 'Preparing installation folder...');
@@ -43,13 +47,8 @@ class InstallerController {
       await this.killRunningApp();
       await this.sleep(1800);
 
-      this.progress(12, 'Loading bundled Server Manager payload...');
-      if (!fs.existsSync(payloadZip)) {
-        throw new Error(
-          `Bundled payload was not found.\nExpected: ${payloadZip}\nRun "npm run build:full" to rebuild the installer.`
-        );
-      }
-      this.log(`Using bundled payload: ${payloadZip}`);
+      this.progress(12, 'Checking GitHub release...');
+      payloadZip = await this.downloadReleasePayload();
 
       this.progress(72, 'Extracting Server Manager files...');
       await this.extractPayload(payloadZip, installPath);
@@ -87,11 +86,118 @@ class InstallerController {
     } catch (err) {
       this.error(err.message || String(err));
       throw err;
+    } finally {
+      if (payloadZip) {
+        fs.promises.rm(path.dirname(payloadZip), { recursive: true, force: true }).catch(() => {});
+      }
     }
   }
 
-  getBundledPayloadPath() {
-    return path.join(__dirname, '..', 'resources', 'payload.zip');
+  requestJson(url) {
+    return new Promise((resolve, reject) => {
+      const request = https.get(url, {
+        headers: {
+          'User-Agent': 'ESS-Server-Controller-Setup',
+          'Accept': 'application/vnd.github+json',
+        },
+        timeout: 20000,
+      }, response => {
+        let body = '';
+        response.setEncoding('utf8');
+        response.on('data', chunk => { body += chunk; });
+        response.on('end', () => {
+          if (response.statusCode < 200 || response.statusCode >= 300) {
+            reject(new Error(`GitHub release lookup failed (${response.statusCode}).`));
+            return;
+          }
+          try {
+            resolve(JSON.parse(body));
+          } catch (error) {
+            reject(new Error(`Could not parse GitHub release response: ${error.message}`));
+          }
+        });
+      });
+      request.on('timeout', () => request.destroy(new Error('GitHub release lookup timed out.')));
+      request.on('error', reject);
+    });
+  }
+
+  pickPayloadAsset(assets) {
+    const zipAssets = (assets || []).filter(asset => /\.zip$/i.test(asset.name || ''));
+    const preferred = zipAssets.find(asset => /payload/i.test(asset.name || ''));
+    const fallback = zipAssets.find(asset => !/(setup|installer)/i.test(asset.name || ''));
+    return preferred || fallback || null;
+  }
+
+  async downloadReleasePayload() {
+    this.log(`Reading latest release from ${RELEASE_OWNER}/${RELEASE_REPO}...`);
+    const release = await this.requestJson(RELEASE_API);
+    const asset = this.pickPayloadAsset(release.assets);
+
+    if (!asset?.browser_download_url) {
+      throw new Error(
+        'No payload ZIP was found on the latest GitHub release. Upload a ZIP asset with "payload" in its name.'
+      );
+    }
+
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ess-setup-'));
+    const zipPath = path.join(tempDir, asset.name);
+    this.log(`Downloading ${asset.name} from ${release.tag_name || 'latest release'}...`);
+    await this.downloadFile(asset.browser_download_url, zipPath);
+    this.log(`Downloaded release payload: ${asset.name}`);
+    return zipPath;
+  }
+
+  downloadFile(url, destination, redirects = 0) {
+    return new Promise((resolve, reject) => {
+      if (redirects > 5) {
+        reject(new Error('Too many redirects while downloading release payload.'));
+        return;
+      }
+
+      const request = https.get(url, {
+        headers: {
+          'User-Agent': 'ESS-Server-Controller-Setup',
+          'Accept': 'application/octet-stream',
+        },
+        timeout: 30000,
+      }, response => {
+        if ([301, 302, 303, 307, 308].includes(response.statusCode)) {
+          response.resume();
+          const redirectUrl = new URL(response.headers.location, url).toString();
+          this.downloadFile(redirectUrl, destination, redirects + 1).then(resolve, reject);
+          return;
+        }
+
+        if (response.statusCode < 200 || response.statusCode >= 300) {
+          response.resume();
+          reject(new Error(`Payload download failed (${response.statusCode}).`));
+          return;
+        }
+
+        const total = Number(response.headers['content-length'] || 0);
+        let downloaded = 0;
+        const file = fs.createWriteStream(destination);
+
+        response.on('data', chunk => {
+          downloaded += chunk.length;
+          if (total > 0) {
+            const pct = 16 + (downloaded / total) * 52;
+            this.progress(Math.min(68, pct), `Downloading payload... ${Math.round(downloaded / 1024 / 1024)} MB`);
+          }
+        });
+
+        response.pipe(file);
+        file.on('finish', () => file.close(resolve));
+        file.on('error', error => {
+          fs.promises.rm(destination, { force: true }).catch(() => {});
+          reject(error);
+        });
+      });
+
+      request.on('timeout', () => request.destroy(new Error('Payload download timed out.')));
+      request.on('error', reject);
+    });
   }
 
   async extractPayload(zipPath, installPath) {

@@ -29,13 +29,19 @@
     "appId": "com.ess.servercontroller",
     "productName": "ESS Server Controller",
     "asar": false,
+    "compression": "maximum",
+    "afterPack": "scripts/prune-electron-dist.js",
     "directories": {
       "output": "dist-app"
     },
     "files": [
       "main.js",
       "preload.js",
-      "src/**/*",
+      "src/index.html",
+      "src/renderer.js",
+      "src/styles.css",
+      "src/assets/icon.ico",
+      "src/assets/logo.png",
       "backend/**/*",
       "config/**/*",
       "package.json"
