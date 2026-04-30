@@ -1,9 +1,37 @@
 const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const path = require('path');
 const os   = require('os');
+const { spawn } = require('child_process');
 
 let mainWindow = null;
 let controller = null;
+const APP_LOGO = path.join(__dirname, 'assets', 'logo.png');
+let selfDeleteAfterQuit = false;
+
+function defaultInstallPath() {
+  return path.join(os.homedir(), 'AppData', 'Local', 'Programs', 'ESS-Multi-Server-Manager');
+}
+
+function scheduleSelfDeleteIfPackaged() {
+  if (!app.isPackaged || process.env.ESS_DISABLE_SELF_DELETE === '1') return false;
+
+  const exePath = process.execPath;
+  const exe = exePath.replace(/'/g, "''");
+  const dir = path.dirname(exePath).replace(/'/g, "''");
+  const script = `
+Start-Sleep -Seconds 2
+Remove-Item -LiteralPath '${exe}' -Force -ErrorAction SilentlyContinue
+Remove-Item -LiteralPath '${dir}' -Force -ErrorAction SilentlyContinue
+`.trim();
+
+  const child = spawn('powershell', ['-NoProfile', '-NonInteractive', '-WindowStyle', 'Hidden', '-Command', script], {
+    detached: true,
+    windowsHide: true,
+    stdio: 'ignore',
+  });
+  child.unref();
+  return true;
+}
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -18,7 +46,7 @@ function createWindow() {
     center:    true,
     show:      false,
     backgroundColor: '#0d1117',
-    icon: path.join(__dirname, 'assets', 'icon.ico'),
+    icon: APP_LOGO,
     webPreferences: {
       preload:          path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -37,6 +65,9 @@ function createWindow() {
 
 app.whenReady().then(createWindow);
 app.on('window-all-closed', () => app.quit());
+app.on('before-quit', () => {
+  if (selfDeleteAfterQuit) scheduleSelfDeleteIfPackaged();
+});
 
 // ── Window controls ───────────────────────────────────────────────────────────
 ipcMain.handle('window:minimize', () => mainWindow?.minimize());
@@ -44,7 +75,7 @@ ipcMain.handle('window:close',    () => app.quit());
 
 // ── Install-path helpers ──────────────────────────────────────────────────────
 ipcMain.handle('installer:defaultPath', () =>
-  path.join(os.homedir(), 'AppData', 'Local', 'Programs', 'ESS-Multi-Server-Manager')
+  defaultInstallPath()
 );
 
 ipcMain.handle('installer:browse', async () => {
@@ -87,6 +118,34 @@ ipcMain.handle('installer:start', async (_, opts) => {
   } catch (err) {
     return { ok: false, error: err.message || String(err) };
   }
+});
+
+// Uninstall
+ipcMain.handle('uninstall:info', async (_, installPath) => {
+  const uninstallManager = require('./backend/uninstallManager');
+  return uninstallManager.getInstalledInfo(installPath || defaultInstallPath());
+});
+
+ipcMain.handle('uninstall:start', async (_, opts = {}) => {
+  const uninstallManager = require('./backend/uninstallManager');
+  try {
+    await uninstallManager.uninstall(opts, {
+      progress: (percent, message) => mainWindow?.webContents.send('uninstall:progress', { percent, message }),
+      log: message => mainWindow?.webContents.send('uninstall:log', message),
+      complete: details => mainWindow?.webContents.send('uninstall:complete', details),
+    });
+    selfDeleteAfterQuit = true;
+    return { ok: true };
+  } catch (err) {
+    const message = err.message || String(err);
+    mainWindow?.webContents.send('uninstall:error', message);
+    return { ok: false, error: message };
+  }
+});
+
+ipcMain.handle('uninstall:close', () => {
+  selfDeleteAfterQuit = true;
+  app.quit();
 });
 
 // ── Post-install actions ──────────────────────────────────────────────────────

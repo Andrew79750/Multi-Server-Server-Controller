@@ -16,6 +16,7 @@ let processManager = null;
 let githubUpdater = null;
 let appUpdater = null;
 let externalFiles = null;
+const APP_LOGO = path.join(__dirname, "src", "assets", "logo.png");
 
 function send(channel, payload) {
   if (mainWindow && !mainWindow.isDestroyed()) {
@@ -61,7 +62,7 @@ function createWindow() {
     minWidth: 1120,
     minHeight: 720,
     title: "ESS Server Controller",
-    icon: path.join(__dirname, "src", "assets", "icon.ico"),
+    icon: APP_LOGO,
     backgroundColor: "#070b14",
     show: false,
     webPreferences: {
@@ -103,7 +104,7 @@ function createDesktopShortcut() {
     target,
     args,
     cwd: app.isPackaged ? path.dirname(process.execPath) : __dirname,
-    icon: app.isPackaged ? process.execPath : path.join(__dirname, "src", "assets", "icon.ico"),
+    icon: app.isPackaged ? process.execPath : APP_LOGO,
     iconIndex: 0,
     description: "ESS Server Controller"
   });

@@ -40,8 +40,8 @@
       "src/index.html",
       "src/renderer.js",
       "src/styles.css",
-      "src/assets/icon.ico",
       "src/assets/logo.png",
+      "BUILD_NOTES.md",
       "backend/**/*",
       "config/**/*",
       "package.json"
@@ -55,7 +55,7 @@
           ]
         }
       ],
-      "icon": "src/assets/icon.ico"
+      "icon": "src/assets/logo.png"
     },
     "publish": [
       {

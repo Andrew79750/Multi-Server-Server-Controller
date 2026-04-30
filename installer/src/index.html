@@ -92,7 +92,7 @@
             </svg>
           </div>
           <div class="ep-body">
-            <div class="ep-title">Installation Error</div>
+            <div class="ep-title" id="ep-title">Installation Error</div>
             <div class="ep-msg" id="ep-msg"></div>
           </div>
           <button class="btn btn-outline ep-close" id="ep-close">Dismiss</button>
@@ -126,7 +126,7 @@
         <div class="page-inner">
           <div class="welcome-hero">
             <div class="hero-icon">
-              <img src="../assets/ess-logo.png" alt="ESS Core" class="hero-logo-img">
+              <img src="../assets/logo.png" alt="ESS Core" class="hero-logo-img">
             </div>
             <h1 class="hero-title">Welcome to<br>ESS Server Controller</h1>
             <p class="hero-sub">Your Windows VPS Management Dashboard</p>
@@ -152,8 +152,19 @@
           </div>
 
           <div class="page-actions">
+            <button class="btn btn-uninstall-entry" id="btn-uninstall">Uninstall</button>
             <button class="btn btn-ghost" id="btn-cancel-0">Cancel</button>
             <button class="btn btn-primary" id="btn-next-0">Continue &rarr;</button>
+          </div>
+
+          <div class="uninstall-card" id="uninstall-card">
+            <div class="uninstall-card-glow"></div>
+            <div class="uninstall-mark">!</div>
+            <div class="uninstall-copy">
+              <span class="uninstall-kicker" id="uninstall-state">Checking installed app...</span>
+              <span class="uninstall-text">Remove an existing ESS Server Controller installation.</span>
+              <span class="uninstall-path" id="uninstall-target">Checking...</span>
+            </div>
           </div>
         </div>
       </section>
@@ -167,7 +178,7 @@
           <div class="option-group">
             <label class="option-label">Installation Location</label>
             <div class="path-row">
-              <input type="text" id="install-path" class="path-input" placeholder="Select install folder…" readonly>
+              <input type="text" id="install-path" class="path-input" placeholder="Select install folder..." readonly>
               <button class="btn btn-outline" id="btn-browse">Browse&hellip;</button>
             </div>
             <div class="path-error hidden" id="path-error"></div>
@@ -211,23 +222,36 @@
       <!-- ── Step 2: Installing ────────────────────────────────────────── -->
       <section class="page hidden" id="page-2">
         <div class="page-inner page-inner-installing">
-          <h2 class="page-title">Installing&hellip;</h2>
-          <p class="page-desc" id="install-status">Preparing installation…</p>
+          <div class="install-progress-view">
+            <h2 class="page-title">Installing&hellip;</h2>
+            <p class="page-desc" id="install-status">Preparing installation...</p>
 
-          <div class="progress-wrap">
-            <div class="progress-track">
-              <div class="progress-fill" id="progress-fill"></div>
+            <div class="progress-wrap">
+              <div class="progress-track">
+                <div class="progress-fill" id="progress-fill"></div>
+              </div>
+              <span class="progress-pct" id="progress-pct">0%</span>
             </div>
-            <span class="progress-pct" id="progress-pct">0%</span>
+
+            <div class="log-wrap">
+              <div class="log-panel" id="log-panel"></div>
+            </div>
           </div>
 
-          <div class="log-wrap">
-            <div class="log-panel" id="log-panel"></div>
-          </div>
+          <div class="uninstall-progress-view">
+            <h2 class="page-title danger-title">Uninstalling&hellip;</h2>
+            <p class="page-desc" id="uninstall-status">Preparing uninstall...</p>
 
-          <div class="install-error hidden" id="install-error-box">
-            <span class="err-icon">&#x26A0;</span>
-            <span id="install-error-text"></span>
+            <div class="progress-wrap">
+              <div class="progress-track progress-track-danger">
+                <div class="progress-fill progress-fill-danger" id="uninstall-progress-fill"></div>
+              </div>
+              <span class="progress-pct danger-pct" id="uninstall-progress-pct">0%</span>
+            </div>
+
+            <div class="log-wrap">
+              <div class="log-panel" id="uninstall-log-panel"></div>
+            </div>
           </div>
         </div>
       </section>
@@ -235,23 +259,46 @@
       <!-- ── Step 3: Complete ──────────────────────────────────────────── -->
       <section class="page hidden" id="page-3">
         <div class="page-inner page-inner-complete">
-          <div class="success-anim">
-            <div class="success-ring"></div>
-            <div class="success-check">&#x2713;</div>
+          <div class="install-complete-view">
+            <div class="success-anim">
+              <div class="success-ring"></div>
+              <div class="success-check">&#x2713;</div>
+            </div>
+
+            <h2 class="complete-title">Installation Complete!</h2>
+            <p class="complete-desc">ESS Server Controller is ready to use.</p>
+
+            <div class="install-location-box">
+              <span class="install-loc-label">Installed to</span>
+              <span class="install-loc-path" id="complete-path"></span>
+            </div>
+
+            <div class="page-actions page-actions-complete">
+              <button class="btn btn-outline" id="btn-folder">Open Folder</button>
+              <button class="btn btn-ghost"   id="btn-finish">Finish</button>
+              <button class="btn btn-primary" id="btn-launch">Launch App &rarr;</button>
+            </div>
           </div>
 
-          <h2 class="complete-title">Installation Complete!</h2>
-          <p class="complete-desc">ESS Server Controller is ready to use.</p>
+          <div class="uninstall-complete-view">
+            <div class="success-anim uninstall-success">
+              <div class="success-ring"></div>
+              <div class="success-check">&#x2713;</div>
+            </div>
 
-          <div class="install-location-box">
-            <span class="install-loc-label">Installed to</span>
-            <span class="install-loc-path" id="complete-path"></span>
-          </div>
+            <h2 class="complete-title">Uninstall Complete</h2>
+            <p class="complete-desc">ESS Server Controller has been removed from this PC.</p>
 
-          <div class="page-actions page-actions-complete">
-            <button class="btn btn-outline" id="btn-folder">Open Folder</button>
-            <button class="btn btn-ghost"   id="btn-finish">Finish</button>
-            <button class="btn btn-primary" id="btn-launch">Launch App &rarr;</button>
+            <div class="install-location-box danger-location-box">
+              <span class="install-loc-label">Removed from</span>
+              <span class="install-loc-path" id="uninstall-complete-path"></span>
+            </div>
+
+            <p class="self-delete-note">The setup app will remove itself after it closes when running as a packaged installer.</p>
+
+            <div class="page-actions page-actions-complete">
+              <button class="btn btn-danger" id="btn-uninstall-finish">Finish</button>
+            </div>
           </div>
         </div>
       </section>
