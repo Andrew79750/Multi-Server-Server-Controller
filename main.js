@@ -1,5 +1,6 @@
 const fs = require("fs");
 const path = require("path");
+const dns = require("dns").promises;
 const { app, BrowserWindow, ipcMain, shell, dialog, Menu } = require("electron");
 const ConfigManager = require("./backend/configManager");
 const Logger = require("./backend/logger");
@@ -16,11 +17,22 @@ let processManager = null;
 let githubUpdater = null;
 let appUpdater = null;
 let externalFiles = null;
+let appStateTimer = null;
+let connectivityTimer = null;
+let connectivity = {
+  online: true,
+  lastConnectedAt: null,
+  checkedAt: null
+};
 const notifiedUpdateKeys = new Set();
 const APP_LOGO = path.join(__dirname, "src", "assets", "logo.png");
 
 app.commandLine.appendSwitch("disable-features", "Vulkan");
 app.commandLine.appendSwitch("disable-gpu-sandbox");
+
+function normalizeVersion(value) {
+  return String(value || "").trim().replace(/^v/i, "");
+}
 
 function send(channel, payload) {
   if (mainWindow && !mainWindow.isDestroyed()) {
@@ -53,9 +65,10 @@ function getAppState() {
   const config = configManager.get();
   return {
     appName: "ESS Server Controller",
-    version: app.getVersion(),
+    version: getRuntimeVersion(),
     theme: config.theme,
     notificationTimeout: config.notificationTimeout,
+    connectivity,
     appUpdates: appUpdater.getState(),
     startWithWindows: app.getLoginItemSettings().openAtLogin,
     system: getSystemInfo(),
@@ -66,16 +79,63 @@ function getAppState() {
   };
 }
 
+async function checkConnectivity() {
+  const checkedAt = new Date().toISOString();
+  try {
+    await Promise.race([
+      dns.lookup("github.com"),
+      new Promise((_, reject) => setTimeout(() => reject(new Error("Connectivity check timed out")), 4500))
+    ]);
+    connectivity = {
+      online: true,
+      lastConnectedAt: checkedAt,
+      checkedAt
+    };
+  } catch {
+    connectivity = {
+      ...connectivity,
+      online: false,
+      checkedAt
+    };
+  }
+  send("app:state", getAppState());
+  return connectivity;
+}
+
 function getInstallBasePath() {
   return app.isPackaged ? path.dirname(process.execPath) : __dirname;
+}
+
+function getInstalledReleaseVersion() {
+  const candidates = [
+    path.join(getInstallBasePath(), "installed-version.json"),
+    path.join(path.dirname(process.execPath), "installed-version.json")
+  ];
+
+  for (const filePath of candidates) {
+    try {
+      if (!fs.existsSync(filePath)) continue;
+      const metadata = JSON.parse(fs.readFileSync(filePath, "utf8"));
+      const version = normalizeVersion(metadata.version || metadata.tagName);
+      if (version) return version;
+    } catch {
+      // Ignore stale or malformed metadata and fall back to the packaged version.
+    }
+  }
+
+  return "";
+}
+
+function getRuntimeVersion() {
+  return getInstalledReleaseVersion() || normalizeVersion(app.getVersion()) || "0.0.0";
 }
 
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1280,
-    height: 700,
+    height: 730,
     minWidth: 1280,
-    minHeight: 700,
+    minHeight: 730,
     title: "ESS Server Controller",
     icon: APP_LOGO,
     frame: false,
@@ -286,7 +346,7 @@ app.whenReady().then(() => {
   githubUpdater = new GitHubUpdater(configManager, logger);
   githubUpdater.init();
 
-  appUpdater = new AppUpdater(configManager, logger, app.getVersion());
+  appUpdater = new AppUpdater(configManager, logger, getRuntimeVersion());
   appUpdater.init();
 
   externalFiles = new ExternalFiles(getInstallBasePath());
@@ -303,6 +363,11 @@ app.whenReady().then(() => {
 
   registerIpc();
   createWindow();
+  checkConnectivity();
+  connectivityTimer = setInterval(checkConnectivity, 10000);
+  connectivityTimer.unref?.();
+  appStateTimer = setInterval(() => send("app:state", getAppState()), 1500);
+  appStateTimer.unref?.();
   logger.info("app", "ESS Server Controller started");
 });
 

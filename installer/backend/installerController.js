@@ -83,7 +83,7 @@ class InstallerController {
   async install(opts) {
     this.opts = opts;
     const { installPath } = opts;
-    let payloadZip = null;
+    let payload = null;
 
     try {
       this.progress(5, 'Preparing installation folder...');
@@ -95,10 +95,11 @@ class InstallerController {
       await this.sleep(1800);
 
       this.progress(12, 'Checking GitHub release...');
-      payloadZip = await this.downloadReleasePayload();
+      payload = await this.downloadReleasePayload();
 
       this.progress(72, 'Extracting Server Manager files...');
-      await this.extractPayload(payloadZip, installPath);
+      await this.extractPayload(payload.zipPath, installPath);
+      this.writeInstalledMetadata(installPath, payload.version, payload.release);
 
       this.progress(76, 'Creating runtime folders...');
       const externalRoot = this.createExternalFolders(installPath);
@@ -125,7 +126,7 @@ class InstallerController {
 
       this.progress(92, 'Registering uninstaller...');
       this.log('Writing custom uninstaller registration...');
-      await require('./uninstallManager').create(installPath);
+      await require('./uninstallManager').create(installPath, payload.version);
 
       this.progress(100, 'Installation complete!');
       this.log('ESS Server Controller installed successfully.');
@@ -134,15 +135,15 @@ class InstallerController {
       this.error(err.message || String(err));
       throw err;
     } finally {
-      if (payloadZip) {
-        fs.promises.rm(path.dirname(payloadZip), { recursive: true, force: true }).catch(() => {});
+      if (payload?.zipPath) {
+        fs.promises.rm(path.dirname(payload.zipPath), { recursive: true, force: true }).catch(() => {});
       }
     }
   }
 
   async repair({ installPath } = {}) {
     const target = this.validateRepairTarget(installPath);
-    let payloadZip = null;
+    let payload = null;
     let extractDir = null;
 
     const originalProgress = this.progress.bind(this);
@@ -165,14 +166,15 @@ class InstallerController {
       await this.sleep(1200);
 
       this.progress(18, 'Downloading current release payload...');
-      payloadZip = await this.downloadReleasePayload();
+      payload = await this.downloadReleasePayload();
 
       this.progress(70, 'Staging repair files...');
       extractDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ess-repair-'));
-      await this.extractPayload(payloadZip, extractDir);
+      await this.extractPayload(payload.zipPath, extractDir);
 
       this.progress(78, 'Restoring application files...');
       await this.copyRepairFiles(extractDir, target.installPath);
+      this.writeInstalledMetadata(target.installPath, payload.version, payload.release);
       this.log('Application files restored without deleting runtime folders.');
 
       this.progress(84, 'Recreating runtime folders...');
@@ -184,7 +186,7 @@ class InstallerController {
 
       this.progress(92, 'Re-registering uninstaller...');
       this.log('Writing custom uninstaller registration...');
-      await require('./uninstallManager').create(target.installPath);
+      await require('./uninstallManager').create(target.installPath, payload.version);
 
       if (startupWasEnabled) {
         this.progress(96, 'Restoring startup entry...');
@@ -205,8 +207,8 @@ class InstallerController {
     } finally {
       this.progress = originalProgress;
       this.log = originalLog;
-      if (payloadZip) {
-        fs.promises.rm(path.dirname(payloadZip), { recursive: true, force: true }).catch(() => {});
+      if (payload?.zipPath) {
+        fs.promises.rm(path.dirname(payload.zipPath), { recursive: true, force: true }).catch(() => {});
       }
       if (extractDir) {
         fs.promises.rm(extractDir, { recursive: true, force: true }).catch(() => {});
@@ -261,19 +263,29 @@ class InstallerController {
 
   getInstalledInfo(installPath) {
     const exePath = path.join(installPath, `${APP_NAME}.exe`);
+    const metadataPath = path.join(installPath, 'installed-version.json');
     const packagePath = path.join(installPath, 'resources', 'app', 'package.json');
     const installed = fs.existsSync(exePath);
 
     let version = '';
-    if (fs.existsSync(packagePath)) {
+    if (fs.existsSync(metadataPath)) {
       try {
-        version = normalizeVersion(JSON.parse(fs.readFileSync(packagePath, 'utf8')).version);
+        const metadata = JSON.parse(fs.readFileSync(metadataPath, 'utf8'));
+        version = normalizeVersion(metadata.version || metadata.tagName);
       } catch {
         version = '';
       }
     }
 
-    return { installed, version, installPath, exePath, packagePath };
+    if (fs.existsSync(packagePath)) {
+      try {
+        version = version || normalizeVersion(JSON.parse(fs.readFileSync(packagePath, 'utf8')).version);
+      } catch {
+        version = version || '';
+      }
+    }
+
+    return { installed, version, installPath, exePath, packagePath, metadataPath };
   }
 
   async checkForUpdates(currentVersion) {
@@ -295,6 +307,7 @@ class InstallerController {
   async downloadReleasePayload() {
     this.log(`Reading ${RELEASE_TAG} release from ${RELEASE_OWNER}/${RELEASE_REPO}...`);
     const release = await this.getRelease();
+    const version = versionFromRelease(release);
 
     const asset = this.pickPayloadAsset(release.assets);
 
@@ -309,7 +322,25 @@ class InstallerController {
     this.log(`Downloading ${asset.name} from ${release.tag_name || 'latest release'}...`);
     await this.downloadFile(asset.browser_download_url, zipPath);
     this.log(`Downloaded release payload: ${asset.name}`);
-    return zipPath;
+    return { zipPath, version, release };
+  }
+
+  writeInstalledMetadata(installPath, version, release = {}) {
+    const normalized = normalizeVersion(version);
+    if (!normalized) return;
+    const metadataPath = path.join(installPath, 'installed-version.json');
+    const metadata = {
+      version: normalized,
+      source: 'github-release',
+      owner: RELEASE_OWNER,
+      repo: RELEASE_REPO,
+      tagName: release.tag_name || '',
+      releaseName: release.name || '',
+      releaseUrl: release.html_url || '',
+      installedAt: new Date().toISOString()
+    };
+    fs.writeFileSync(metadataPath, JSON.stringify(metadata, null, 2), 'utf8');
+    this.log(`Recorded installed version: v${normalized}`);
   }
 
   downloadFile(url, destination, redirects = 0) {

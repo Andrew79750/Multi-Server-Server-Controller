@@ -32,6 +32,10 @@ function ps(script, { rejectOnError = false } = {}) {
 
 function esc(str) { return str.replace(/'/g, "''"); }
 
+function normalizeVersion(value) {
+  return String(value || '').trim().replace(/^v/i, '') || '1.0.0';
+}
+
 function desktopShortcutPath() {
   return path.join(os.homedir(), 'Desktop', `${APP_NAME}.lnk`);
 }
@@ -166,11 +170,12 @@ async function uninstall({ installPath } = {}, events = {}) {
   return { installPath: target.installPath };
 }
 
-async function create(installPath) {
+async function create(installPath, version = '1.0.0') {
   const exePath      = path.join(installPath, `${APP_NAME}.exe`);
   const batPath      = path.join(installPath, `Uninstall ${APP_NAME}.bat`);
   const startMenuDir = `%APPDATA%\\Microsoft\\Windows\\Start Menu\\Programs\\${APP_NAME}`;
   const desktopLnk   = `%USERPROFILE%\\Desktop\\${APP_NAME}.lnk`;
+  const displayVersion = normalizeVersion(version);
 
   const bat = [
     '@echo off',
@@ -194,7 +199,7 @@ async function create(installPath) {
 $key = '${esc(REG_KEY)}'
 New-Item -Path $key -Force | Out-Null
 Set-ItemProperty -Path $key -Name 'DisplayName'     -Value '${esc(APP_NAME)}'
-Set-ItemProperty -Path $key -Name 'DisplayVersion'  -Value '1.0.0'
+Set-ItemProperty -Path $key -Name 'DisplayVersion'  -Value '${esc(displayVersion)}'
 Set-ItemProperty -Path $key -Name 'Publisher'       -Value 'ESS'
 Set-ItemProperty -Path $key -Name 'InstallLocation' -Value '${esc(installPath)}'
 Set-ItemProperty -Path $key -Name 'DisplayIcon'     -Value '${esc(exePath)}'

@@ -84,11 +84,6 @@
               <small>Click here to view</small>
             </div>
           </button>
-          <div class="sidebar-footer">
-            <span class="version-pill" id="sidebarVersion">v1.0.0</span>
-            <span>ESS Core &copy; 2026</span>
-          </div>
-          <button class="sidebar-update-link" type="button" id="sidebarCheckUpdates">Check for updates</button>
         </div>
       </aside>
 
@@ -302,6 +297,31 @@
         </section>
       </main>
     </div>
+    <footer class="custom-bottombar" aria-label="ESS Server Controller status bar">
+      <div class="bottombar-left" id="connectionStatus">
+        <span class="connection-tooltip" id="connectionTooltip" role="tooltip">
+          <strong id="connectionTooltipTitle">No Internet Connection</strong>
+          <span id="connectionTooltipBody">Internet is needed for GitHub update checks, release downloads, repository sync, and opening external links.</span>
+        </span>
+        <span class="bottombar-dot" id="connectionDot"></span>
+        <span id="connectionStatusText">Ready</span>
+      </div>
+      <div class="bottombar-center">
+        <span class="credit-tooltip" id="creditTooltip" role="tooltip">
+          <strong>This controller system was built by Andrew!</strong>
+          <span>Click below to open my GitHub!</span>
+        </span>
+        <button class="bottombar-credit" id="bottombarCredit" type="button" aria-describedby="creditTooltip">Credits: Andrew</button>
+      </div>
+      <div class="bottombar-right">
+        <span class="bottombar-brand">ESS Server Manager 2026</span>
+        <span class="version-tooltip" id="versionTooltip" role="tooltip">
+          <strong id="versionTooltipCurrent">Checking installed version...</strong>
+          <span>Click here to check for updates.</span>
+        </span>
+        <button class="version-pill bottombar-version" id="bottombarVersion" type="button" aria-describedby="versionTooltip">v...</button>
+      </div>
+    </footer>
 
     <div class="modal-backdrop" id="serverSetupModal" aria-hidden="true">
       <section class="setup-modal" role="dialog" aria-modal="true" aria-labelledby="serverSetupTitle">
@@ -383,6 +403,28 @@
           <button class="ghost-btn" id="viewRelease">View Release</button>
           <button class="ghost-btn" id="remindLater">Remind Me Later</button>
           <button class="danger-btn" id="skipVersion">Skip This Version</button>
+        </div>
+      </section>
+    </div>
+    <div class="modal-backdrop" id="metricInfoModal" aria-hidden="true">
+      <section class="info-modal" role="dialog" aria-modal="true" aria-labelledby="metricInfoTitle">
+        <button class="modal-close" id="closeMetricInfoModal" type="button" title="Close">&times;</button>
+        <div class="info-modal-hero">
+          <div class="info-orb">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 13h4l2-7 4 14 2-7h4"/><path d="M4 19h16"/></svg>
+          </div>
+          <div>
+            <span class="eyebrow">CPU Telemetry</span>
+            <h2 id="metricInfoTitle">Why CPU Usage Says Loading</h2>
+            <p>The controller calculates CPU usage by comparing two system snapshots. The first snapshot gives it a baseline, and the next refresh turns that into a real percentage.</p>
+          </div>
+        </div>
+        <div class="info-note">
+          <strong>Usually this only lasts a moment.</strong>
+          <span>If it keeps loading, the app is still waiting for a fresh system sample from Windows.</span>
+        </div>
+        <div class="button-row modal-actions">
+          <button class="primary-btn" id="dismissMetricInfoModal" type="button">Got It</button>
         </div>
       </section>
     </div>

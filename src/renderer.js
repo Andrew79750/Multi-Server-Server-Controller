@@ -8,6 +8,7 @@ const state = {
   notificationTimeout: 4500,
   startWithWindows: false,
   external: null,
+  loadingFrame: 0,
   serverRenderSignature: "",
   websiteRenderSignature: "",
   summaryRenderSignature: "",
@@ -145,18 +146,35 @@ function normalizeImportedServers(value) {
   });
 }
 
+function formatConnectionTime(value) {
+  if (!value) return "No previous connection recorded this session.";
+  return `Last connected ${formatDateTime(value)}.`;
+}
+
 function showToast(type, message, details = "") {
   const container = $("#toastContainer");
   const toast = document.createElement("div");
-  toast.className = `toast ${type || "info"}`;
+  const tone = type || "info";
+  const icons = {
+    success: "✓",
+    warning: "!",
+    error: "!",
+    info: "i"
+  };
+  toast.className = `toast ${tone}`;
   toast.innerHTML = `
+    <span class="toast-icon" aria-hidden="true">${icons[tone] || icons.info}</span>
     <div>
       <strong>${escapeHtml(message)}</strong>
       ${details ? `<small>${escapeHtml(details)}</small>` : ""}
     </div>
     <button type="button" title="Close">&times;</button>
   `;
-  const close = () => toast.remove();
+  const close = () => {
+    if (toast.classList.contains("is-leaving")) return;
+    toast.classList.add("is-leaving");
+    setTimeout(() => toast.remove(), 260);
+  };
   toast.querySelector("button").addEventListener("click", close);
   container.appendChild(toast);
   setTimeout(close, state.notificationTimeout || 4500);
@@ -203,6 +221,8 @@ function renderMetrics() {
   const updates = repos.filter((repo) => repo.updateAvailable).length;
   const errors = [...repos, ...state.servers].filter((item) => item.status === "error").length;
   const memory = state.app?.system?.memory;
+  const cpuUsedPercent = state.app?.system?.cpuUsedPercent;
+  const hasCpuUsage = Number.isFinite(cpuUsedPercent);
   const serverTotal = state.servers.length || 0;
   const metricCards = [
     {
@@ -230,18 +250,19 @@ function renderMetrics() {
       percent: memory ? memory.usedPercent : 0
     },
     {
-      label: "Active Warnings",
-      value: errors,
-      helper: errors ? "Review recent events" : "No warnings detected",
-      icon: "warning",
-      tone: errors ? "danger" : "good",
-      percent: errors ? Math.min(errors * 16, 100) : 0
+      label: "CPU Usage",
+      value: hasCpuUsage ? `${cpuUsedPercent}%` : `Loading${".".repeat((state.loadingFrame % 3) + 1)}`,
+      helper: state.app?.system ? `${state.app.system.cpuCores || 0} cores / ${state.app.system.cpuModel || "CPU"}` : "Waiting for telemetry",
+      icon: "activity",
+      tone: hasCpuUsage && cpuUsedPercent > 85 ? "danger" : hasCpuUsage && cpuUsedPercent > 65 ? "warn" : "info",
+      percent: hasCpuUsage ? cpuUsedPercent : 0,
+      loadingInfo: hasCpuUsage ? "" : "cpu"
     }
   ];
   const container = $("#dashboardMetrics");
   if (container.children.length !== metricCards.length) {
     container.innerHTML = metricCards.map((metric, index) => `
-    <article class="metric-card metric-${metric.tone}" style="--metric-fill: 0%; --delay: ${index * 70}ms">
+    <article class="metric-card metric-${metric.tone}" ${metric.loadingInfo ? `data-loading-info="${metric.loadingInfo}"` : ""} style="--metric-fill: 0%; --delay: ${index * 70}ms">
       <div class="metric-topline">
         <span>${escapeHtml(metric.label)}</span>
         <div class="metric-icon">${iconSvg(metric.icon)}</div>
@@ -260,6 +281,8 @@ function renderMetrics() {
     if (!card) return;
     card.classList.remove("metric-good", "metric-info", "metric-warn", "metric-danger");
     card.classList.add(`metric-${metric.tone}`);
+    if (metric.loadingInfo) card.dataset.loadingInfo = metric.loadingInfo;
+    else delete card.dataset.loadingInfo;
     card.style.setProperty("--metric-fill", `${clampPercent(metric.percent)}%`);
     const label = card.querySelector(".metric-topline span");
     const value = card.querySelector(".metric-value-line strong");
@@ -269,6 +292,16 @@ function renderMetrics() {
     if (helper && helper.textContent !== metric.helper) helper.textContent = metric.helper;
   });
   $("#sidebarOnlineCount").textContent = `${running} ${running === 1 ? "server" : "servers"} online`;
+}
+
+function openMetricInfoModal() {
+  $("#metricInfoModal").classList.add("open");
+  $("#metricInfoModal").setAttribute("aria-hidden", "false");
+}
+
+function closeMetricInfoModal() {
+  $("#metricInfoModal").classList.remove("open");
+  $("#metricInfoModal").setAttribute("aria-hidden", "true");
 }
 
 function renderServerSummary() {
@@ -571,8 +604,24 @@ function renderSystem() {
     systemChip.textContent = system ? `${system.hostname} / ${system.memory.usedPercent}% RAM` : "System loading";
   }
   const version = state.app?.version || state.updates?.currentVersion || "1.0.0";
-  const sidebarVersion = $("#sidebarVersion");
-  if (sidebarVersion) sidebarVersion.textContent = `v${String(version).replace(/^v/i, "")}`;
+  const versionText = `v${String(version).replace(/^v/i, "")}`;
+  const bottombarVersion = $("#bottombarVersion");
+  if (bottombarVersion) bottombarVersion.textContent = versionText;
+  const versionTooltipCurrent = $("#versionTooltipCurrent");
+  if (versionTooltipCurrent) versionTooltipCurrent.textContent = `You are on ${versionText}`;
+
+  const connectivity = state.app?.connectivity || { online: true };
+  const isOnline = connectivity.online !== false;
+  const connectionStatus = $("#connectionStatus");
+  const connectionStatusText = $("#connectionStatusText");
+  const connectionTooltipTitle = $("#connectionTooltipTitle");
+  const connectionTooltipBody = $("#connectionTooltipBody");
+  if (connectionStatus) connectionStatus.classList.toggle("is-offline", !isOnline);
+  if (connectionStatusText) connectionStatusText.textContent = isOnline ? "Ready" : "No Internet Connection";
+  if (connectionTooltipTitle) connectionTooltipTitle.textContent = formatConnectionTime(connectivity.lastConnectedAt);
+  if (connectionTooltipBody) {
+    connectionTooltipBody.textContent = "Internet is needed for GitHub update checks, release downloads, repository sync, and opening external links.";
+  }
 }
 
 function renderAll() {
@@ -625,6 +674,11 @@ function bindEvents() {
   $$(".nav-btn").forEach((btn) => btn.addEventListener("click", () => setPage(btn.dataset.page)));
   document.body.addEventListener("click", async (event) => {
     const target = event.target.closest("button");
+    const loadingMetric = event.target.closest('[data-loading-info="cpu"]');
+    if (loadingMetric) {
+      openMetricInfoModal();
+      return;
+    }
     if (!target) return;
     if (target.dataset.go) setPage(target.dataset.go);
     if (target.dataset.openServerSetup !== undefined) openServerSetupModal();
@@ -816,7 +870,10 @@ function bindEvents() {
   }
 
   $("#checkForUpdates").addEventListener("click", checkForUpdates);
-  $("#sidebarCheckUpdates").addEventListener("click", checkForUpdates);
+  $("#bottombarVersion").addEventListener("click", checkForUpdates);
+  $("#bottombarCredit").addEventListener("click", async () => {
+    await safeAction(() => window.essApi.openExternal("https://github.com/Andrew79750"), "Opening Andrew's GitHub profile");
+  });
 
   $("#viewGithubReleases").addEventListener("click", async () => {
     await safeAction(() => window.essApi.openExternal("https://github.com/Andrew79750/Multi-Server-Server-Controller/releases"), "Opening GitHub releases");
@@ -826,6 +883,11 @@ function bindEvents() {
   $("#remindLater").addEventListener("click", closeUpdateModal);
   $("#updateModal").addEventListener("click", (event) => {
     if (event.target.id === "updateModal") closeUpdateModal();
+  });
+  $("#closeMetricInfoModal").addEventListener("click", closeMetricInfoModal);
+  $("#dismissMetricInfoModal").addEventListener("click", closeMetricInfoModal);
+  $("#metricInfoModal").addEventListener("click", (event) => {
+    if (event.target.id === "metricInfoModal") closeMetricInfoModal();
   });
   $("#viewRelease").addEventListener("click", async () => {
     await safeAction(() => window.essApi.openExternal(state.updates?.releaseUrl));
@@ -852,6 +914,11 @@ async function init() {
   state.startWithWindows = Boolean(state.app.startWithWindows);
   setTheme(state.app.theme || "dark");
   renderAll();
+  setInterval(() => {
+    state.loadingFrame = (state.loadingFrame + 1) % 3;
+    const cpuValue = state.app?.system?.cpuUsedPercent;
+    if (!Number.isFinite(cpuValue)) renderMetrics();
+  }, 450);
 
   window.essApi.onLog((entry) => {
     state.logs.push(entry);
