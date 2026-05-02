@@ -34,11 +34,162 @@ html, body {
 }
 
 /* ── Layout ──────────────────────────────────────────────────────────────── */
-.layout { display: flex; width: 900px; height: 580px; }
+.layout {
+  display: flex;
+  flex-direction: column;
+  width: 900px;
+  height: 580px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #070b14;
+  border: 1px solid rgba(148,163,184,.13);
+  box-shadow: 0 24px 70px rgba(0,0,0,.46), 0 0 0 1px rgba(15,23,42,.72);
+}
+
+.installer-shell {
+  display: flex;
+  width: 100%;
+  height: 540px;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.custom-titlebar {
+  height: 40px;
+  width: 100%;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 30;
+  display: grid;
+  grid-template-columns: minmax(230px, 1fr) auto minmax(116px, 1fr);
+  align-items: center;
+  padding: 0 10px 0 12px;
+  color: #dbeafe;
+  background:
+    radial-gradient(circle at 8% -80%, rgba(56,189,248,.32), transparent 34%),
+    radial-gradient(circle at 88% -120%, rgba(79,70,229,.28), transparent 36%),
+    linear-gradient(90deg, rgba(5,9,18,.98), rgba(9,18,38,.96) 48%, rgba(6,12,26,.98));
+  border-bottom: 1px solid rgba(148,163,184,.14);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 10px 28px rgba(0,0,0,.18);
+  -webkit-app-region: drag;
+}
+
+.custom-titlebar::before {
+  content: '';
+  position: absolute;
+  left: 18px;
+  right: 18px;
+  bottom: -1px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(59,130,246,.52), rgba(34,211,238,.30), transparent);
+  pointer-events: none;
+}
+
+.titlebar-left,
+.titlebar-right {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+}
+
+.titlebar-left {
+  gap: 10px;
+  min-width: 0;
+}
+
+.titlebar-logo {
+  width: 28px;
+  height: 24px;
+  display: block;
+  flex-shrink: 0;
+  object-fit: contain;
+}
+
+.titlebar-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.titlebar-title {
+  color: #edf5ff;
+  font-size: 12px;
+  line-height: 1.1;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.titlebar-subtitle {
+  color: #70809f;
+  font-size: 9.5px;
+  line-height: 1.1;
+}
+
+.titlebar-center {
+  justify-self: center;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #8fa3c7;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .16px;
+  opacity: .82;
+}
+
+.titlebar-right {
+  justify-self: end;
+  gap: 6px;
+  -webkit-app-region: no-drag;
+}
+
+.titlebar-btn {
+  width: 30px;
+  height: 28px;
+  border: 0;
+  border-radius: 8px;
+  background: rgba(255,255,255,.015);
+  color: #8da0bd;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background .18s ease, color .18s ease, box-shadow .18s ease, transform .18s ease;
+  -webkit-app-region: no-drag;
+  cursor: pointer;
+}
+
+.titlebar-btn svg {
+  width: 12px;
+  height: 12px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+}
+
+.titlebar-btn:hover {
+  background: rgba(59,130,246,.15);
+  color: #edf5ff;
+  box-shadow: inset 0 0 0 1px rgba(147,197,253,.10), 0 8px 18px rgba(30,64,175,.12);
+  transform: translateY(-1px);
+}
+
+.titlebar-btn:active {
+  transform: translateY(0);
+}
+
+.titlebar-btn.close:hover {
+  background: rgba(239,68,68,.20);
+  color: #fff;
+  box-shadow: inset 0 0 0 1px rgba(248,113,113,.16), 0 8px 18px rgba(127,29,29,.20);
+}
 
 /* ── Sidebar ─────────────────────────────────────────────────────────────── */
 .sidebar {
-  width: 248px; height: 580px;
+  width: 248px; height: 540px;
   background: var(--sidebar-bg);
   border-right: 1px solid var(--border);
   display: flex; flex-direction: column;
@@ -70,17 +221,9 @@ html, body {
 .brand { display: flex; align-items: center; gap: 12px; }
 .brand-icon {
   width: 44px; height: 44px;
-  border-radius: 10px;
-  background: linear-gradient(135deg, var(--blue), var(--purple));
-  display: flex; align-items: center; justify-content: center;
-  font-size: 14px; font-weight: 800; color: #fff;
-  letter-spacing: .5px;
+  display: block;
+  object-fit: contain;
   flex-shrink: 0;
-  animation: brandGlow 4s ease-in-out infinite alternate;
-}
-@keyframes brandGlow {
-  from { box-shadow: 0 4px 14px rgba(59,130,246,.35); }
-  to   { box-shadow: 0 4px 24px rgba(59,130,246,.65), 0 0 10px rgba(124,58,237,.3); }
 }
 .brand-text { display: flex; flex-direction: column; }
 .brand-name { font-size: 13px; font-weight: 700; color: var(--text); line-height: 1.2; }
@@ -160,7 +303,7 @@ html, body {
 
 /* ── Content area ────────────────────────────────────────────────────────── */
 .content {
-  flex: 1; height: 580px;
+  flex: 1; height: 540px;
   background: var(--content-bg);
   position: relative; overflow: hidden;
   display: flex; flex-direction: column;
@@ -202,7 +345,7 @@ html, body {
 /* ── Pages ───────────────────────────────────────────────────────────────── */
 .page {
   position: absolute;
-  inset: 38px 0 0 0;
+  inset: 0;
   display: flex; align-items: center; justify-content: center;
   opacity: 1;
   transform: translateX(0) scale(1);
@@ -252,6 +395,198 @@ html, body {
   line-height: 1.25; letter-spacing: -.4px;
 }
 .hero-sub { font-size: 12.5px; color: var(--text-2); }
+
+.page-inner-installed {
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  padding: 0;
+}
+
+.installed-shell {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  padding: 52px 72px 42px;
+  border: none;
+  border-radius: 0;
+  background:
+    linear-gradient(145deg, rgba(255,255,255,.035), rgba(255,255,255,.012) 48%, rgba(59,130,246,.045)),
+    radial-gradient(circle at 18% 74%, rgba(124,58,237,.22), transparent 34%),
+    radial-gradient(circle at 82% 18%, rgba(6,182,212,.18), transparent 34%),
+    linear-gradient(90deg, rgba(5,8,18,.35), rgba(8,14,26,.12));
+  box-shadow: inset 1px 0 0 rgba(255,255,255,.035);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  text-align: center;
+}
+
+.installed-shell::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(6,182,212,.95), rgba(124,58,237,.75), transparent);
+  animation: toplineGlow 2.4s ease-in-out infinite;
+}
+
+.installed-orbit {
+  display: none;
+}
+
+@keyframes orbitDrift {
+  from { transform: translate3d(0,0,0) rotate(0deg); opacity: .56; }
+  to { transform: translate3d(-16px,20px,0) rotate(16deg); opacity: .9; }
+}
+
+.installed-logo-wrap {
+  position: relative;
+  width: 132px;
+  height: 112px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.installed-logo-wrap::before {
+  content: '';
+  position: absolute;
+  inset: 12px;
+  border-radius: 32px;
+  background: linear-gradient(135deg, rgba(59,130,246,.24), rgba(124,58,237,.18), rgba(6,182,212,.16));
+  filter: blur(16px);
+  animation: logoAura 3s ease-in-out infinite alternate;
+}
+
+@keyframes logoAura {
+  from { transform: scale(.92); opacity: .55; }
+  to { transform: scale(1.08); opacity: .92; }
+}
+
+.installed-logo-img {
+  position: relative;
+  width: 126px;
+  height: auto;
+  filter: drop-shadow(0 0 20px rgba(6,182,212,.34));
+  animation: logoPulse 3.2s ease-in-out infinite alternate;
+}
+
+.installed-copy {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.installed-title {
+  font-size: 27px;
+  font-weight: 850;
+  line-height: 1.12;
+  color: var(--text);
+  letter-spacing: -.4px;
+}
+
+.installed-sub {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-2);
+}
+
+.installed-details {
+  position: relative;
+  width: 100%;
+  max-width: 560px;
+  display: grid;
+  gap: 8px;
+  padding: 2px 0;
+}
+
+.installed-detail {
+  display: grid;
+  grid-template-columns: 136px 1fr;
+  gap: 14px;
+  align-items: center;
+  min-height: 46px;
+  padding: 10px 12px;
+  border: 1px solid rgba(255,255,255,.075);
+  border-radius: var(--radius-sm);
+  background: rgba(3,7,18,.32);
+  text-align: left;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.035);
+}
+
+.installed-detail-label {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .75px;
+  text-transform: uppercase;
+  color: rgba(148,163,184,.72);
+}
+
+.installed-detail-value {
+  min-width: 0;
+  font-size: 12.5px;
+  font-weight: 650;
+  color: #dbeafe;
+}
+
+.installed-path {
+  font-family: 'Cascadia Code', 'Consolas', monospace;
+  font-size: 11px;
+  color: #67e8f9;
+  word-break: break-all;
+}
+
+.installed-actions {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  width: 100%;
+  max-width: 560px;
+  padding-top: 4px;
+  -webkit-app-region: no-drag;
+}
+
+.installed-actions .btn {
+  min-width: 164px;
+}
+
+.installed-repair-btn {
+  border-color: rgba(124,58,237,.28);
+  color: #ddd6fe;
+  background: rgba(124,58,237,.08);
+}
+
+.installed-repair-btn:hover {
+  border-color: rgba(167,139,250,.48);
+  background: rgba(124,58,237,.14);
+}
+
+.installed-close {
+  position: relative;
+  border: none;
+  background: transparent;
+  color: rgba(148,163,184,.72);
+  font-size: 11.5px;
+  font-weight: 650;
+  cursor: pointer;
+  padding: 4px 10px;
+  border-radius: 7px;
+  -webkit-app-region: no-drag;
+  transition: color .15s, background .15s;
+}
+
+.installed-close:hover {
+  color: var(--text);
+  background: rgba(255,255,255,.045);
+}
 
 .feature-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .feat {
@@ -376,7 +711,24 @@ body.uninstall-mode .step-row.done + .step-line {
   background: linear-gradient(180deg, var(--red), rgba(239,68,68,.25));
 }
 body.uninstall-mode .brand-icon {
-  background: linear-gradient(135deg, var(--blue), var(--red));
+  filter: none;
+}
+
+body.repair-mode .step-row.active .step-bullet {
+  border-color: var(--cyan);
+  background: linear-gradient(135deg, var(--blue), var(--cyan));
+  box-shadow: 0 0 0 4px rgba(6,182,212,.16);
+}
+body.repair-mode .step-row.done .step-bullet {
+  border-color: var(--purple);
+  background: linear-gradient(135deg, var(--purple), var(--cyan));
+  box-shadow: 0 0 0 4px rgba(124,58,237,.12);
+}
+body.repair-mode .step-row.done + .step-line {
+  background: linear-gradient(180deg, var(--cyan), rgba(124,58,237,.28));
+}
+body.repair-mode .brand-icon {
+  filter: none;
 }
 
 .progress-wrap { display: flex; align-items: center; gap: 10px; }
@@ -468,6 +820,7 @@ body.uninstall-mode .brand-icon {
 .page-inner-complete {
   align-items: center; text-align: center;
   gap: 14px; padding-top: 8px;
+  max-width: 600px;
 }
 
 .success-anim {
@@ -522,12 +875,12 @@ body.uninstall-mode .brand-icon {
   background: var(--card-bg);
   border: 1px solid var(--card-border);
   border-radius: var(--radius-sm);
-  padding: 10px 16px;
+  padding: 12px 18px;
   display: flex; flex-direction: column; gap: 2px;
-  width: 100%; max-width: 400px; text-align: left;
+  width: 100%; max-width: 500px; text-align: left;
 }
 .install-loc-label { font-size: 10px; color: var(--text-3); text-transform: uppercase; letter-spacing: .8px; }
-.install-loc-path  { font-size: 11.5px; color: var(--cyan); font-family: monospace; word-break: break-all; }
+.install-loc-path  { font-size: 11.5px; color: var(--cyan); font-family: monospace; word-break: break-all; line-height: 1.35; }
 .danger-location-box {
   border-color: rgba(239,68,68,.2);
   background: rgba(239,68,68,.045);
@@ -540,7 +893,24 @@ body.uninstall-mode .brand-icon {
   color: var(--text-3);
 }
 
-.page-actions-complete { justify-content: center; flex-wrap: wrap; gap: 10px; }
+.page-actions-complete {
+  justify-content: center;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 12px;
+  width: 100%;
+  max-width: 500px;
+  padding-top: 6px;
+}
+
+.page-actions-complete .btn {
+  min-width: 128px;
+  text-align: center;
+}
+
+.page-actions-complete #btn-launch {
+  min-width: 146px;
+}
 
 /* ── Buttons ─────────────────────────────────────────────────────────────── */
 .page-actions {
@@ -651,67 +1021,6 @@ body.uninstall-mode .brand-icon {
   transform: translateY(-1px);
 }
 
-.uninstall-card {
-  position: relative;
-  display: flex; align-items: center; gap: 12px;
-  min-height: 62px;
-  padding: 12px 14px;
-  border-radius: var(--radius-sm);
-  border: 1px solid rgba(239,68,68,.18);
-  background: linear-gradient(135deg, rgba(239,68,68,.08), rgba(59,130,246,.035));
-  overflow: hidden;
-}
-.uninstall-card.is-disabled {
-  border-color: rgba(255,255,255,.07);
-  background: rgba(255,255,255,.025);
-}
-.uninstall-card-glow {
-  position: absolute; inset: -60px auto auto -36px;
-  width: 130px; height: 130px;
-  background: radial-gradient(circle, rgba(239,68,68,.22), transparent 62%);
-  pointer-events: none;
-  animation: uninstallGlow 3.6s ease-in-out infinite alternate;
-}
-@keyframes uninstallGlow {
-  from { opacity: .35; transform: translateX(0); }
-  to   { opacity: .75; transform: translateX(20px); }
-}
-.uninstall-mark {
-  position: relative;
-  width: 30px; height: 30px;
-  border-radius: 9px;
-  display: flex; align-items: center; justify-content: center;
-  color: #fecaca;
-  font-weight: 900;
-  background: rgba(239,68,68,.12);
-  border: 1px solid rgba(239,68,68,.25);
-  box-shadow: 0 0 16px rgba(239,68,68,.14);
-  flex-shrink: 0;
-}
-.uninstall-copy {
-  position: relative;
-  min-width: 0;
-  display: flex; flex-direction: column; gap: 2px;
-}
-.uninstall-kicker {
-  font-size: 10px;
-  color: #fca5a5;
-  text-transform: uppercase;
-  letter-spacing: .8px;
-  font-weight: 700;
-}
-.uninstall-text {
-  font-size: 12px;
-  color: var(--text-2);
-}
-.uninstall-path {
-  font-family: 'Cascadia Code', 'Consolas', monospace;
-  font-size: 10.5px;
-  color: rgba(148,163,184,.82);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 
 /* ── Animated error popup ────────────────────────────────────────────────── */
 .error-overlay {
@@ -727,6 +1036,27 @@ body.uninstall-mode .brand-icon {
   from { opacity: 0; }
   to   { opacity: 1; }
 }
+@keyframes overlayOut {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+@keyframes popupFloatOut {
+  0% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+    filter: blur(0);
+  }
+  55% {
+    opacity: .9;
+    transform: scale(1.018) translateY(-4px);
+    filter: blur(0);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(.92) translateY(18px);
+    filter: blur(5px);
+  }
+}
 
 .error-popup {
   background: linear-gradient(145deg, #130a0a, #1a0d0d);
@@ -740,6 +1070,15 @@ body.uninstall-mode .brand-icon {
               0 0 40px rgba(239,68,68,.12);
   animation: popupBounce .45s cubic-bezier(.34,1.56,.64,1) forwards;
   position: relative; overflow: hidden;
+}
+.error-overlay.modal-closing,
+.update-overlay.modal-closing {
+  pointer-events: none;
+  animation: overlayOut .26s ease forwards;
+}
+.error-overlay.modal-closing .error-popup,
+.update-overlay.modal-closing .update-popup {
+  animation: popupFloatOut .26s cubic-bezier(.4,0,.2,1) forwards;
 }
 /* Top glow bar */
 .error-popup::before {

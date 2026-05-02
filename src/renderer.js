@@ -7,7 +7,9 @@ const state = {
   theme: "dark",
   notificationTimeout: 4500,
   startWithWindows: false,
-  external: null
+  external: null,
+  serverRenderSignature: "",
+  websiteRenderSignature: ""
 };
 
 const $ = (selector) => document.querySelector(selector);
@@ -25,6 +27,21 @@ function escapeHtml(value) {
 
 function statusClass(status) {
   return `status-${String(status || "idle").replace(/[^a-z0-9]+/gi, "-").toLowerCase()}`;
+}
+
+function statusLabel(status) {
+  return String(status || "idle").replace(/[-_]+/g, " ");
+}
+
+function emptyState(title, message, compact = false) {
+  return `
+    <div class="empty-state ${compact ? "compact" : ""}">
+      <div>
+        <strong>${escapeHtml(title)}</strong>
+        <span>${escapeHtml(message)}</span>
+      </div>
+    </div>
+  `;
 }
 
 function formatTime(value) {
@@ -57,7 +74,7 @@ function showToast(type, message, details = "") {
       <strong>${escapeHtml(message)}</strong>
       ${details ? `<small>${escapeHtml(details)}</small>` : ""}
     </div>
-    <button type="button" title="Close">x</button>
+    <button type="button" title="Close">&times;</button>
   `;
   const close = () => toast.remove();
   toast.querySelector("button").addEventListener("click", close);
@@ -91,6 +108,8 @@ function setTheme(theme) {
 
 function setPage(page) {
   $$(".nav-btn").forEach((btn) => btn.classList.toggle("active", btn.dataset.page === page));
+  const settingsButton = $(".sidebar-settings");
+  if (settingsButton) settingsButton.classList.toggle("active", page === "settings");
   $$(".page").forEach((section) => section.classList.toggle("active", section.id === `page-${page}`));
   $("#pageTitle").textContent = page.charAt(0).toUpperCase() + page.slice(1);
 }
@@ -112,40 +131,55 @@ function renderMetrics() {
       <strong>${value}</strong>
     </article>
   `).join("");
+  $("#sidebarOnlineCount").textContent = `${running} ${running === 1 ? "server" : "servers"} online`;
 }
 
 function renderServerSummary() {
-  $("#dashboardServers").innerHTML = state.servers.map((server) => `
+  $("#dashboardServers").innerHTML = state.servers.length ? state.servers.map((server) => `
     <div class="summary-row">
       <div>
         <strong>${escapeHtml(server.name)}</strong>
         <small>${escapeHtml(server.message || server.type)}</small>
       </div>
-      <span class="status-pill ${statusClass(server.status)}">${escapeHtml(server.status)}</span>
+      <span class="status-pill ${statusClass(server.status)}">${escapeHtml(statusLabel(server.status))}</span>
     </div>
-  `).join("");
+  `).join("") : emptyState("No server profiles", "Add or configure server profiles in Settings to begin managing processes.", true);
 }
 
 function renderServerCard(server) {
   const disabledStart = server.command ? "" : "disabled";
+  const isRunning = server.status === "running";
+  const statusText = statusLabel(server.status);
+  const serverInitials = String(server.name || "SV").split(/\s+/).slice(0, 2).map((part) => part[0]).join("").toUpperCase();
+  const commandText = server.command || "No launch command configured";
   return `
-    <article class="server-card">
-      <div class="card-head">
-        <div>
-          <h3>${escapeHtml(server.name)}</h3>
+    <article class="server-card server-card-${statusClass(server.status)}">
+      <div class="server-main">
+        <div class="server-avatar">${escapeHtml(serverInitials)}</div>
+        <div class="server-title-group">
+          <div class="server-title-line">
+            <h3>${escapeHtml(server.name)}</h3>
+            <span class="status-pill ${statusClass(server.status)}">${escapeHtml(statusText)}</span>
+          </div>
           <p>${escapeHtml(server.type)} / ${escapeHtml(server.message || "Ready")}</p>
+          <div class="server-command-line">${escapeHtml(commandText)}</div>
         </div>
-        <span class="status-pill ${statusClass(server.status)}">${escapeHtml(server.status)}</span>
       </div>
-      <div class="detail-row"><span>Root</span><span class="path-text">${escapeHtml(shortPath(server.rootPath))}</span></div>
-      <div class="detail-row"><span>PID</span><span>${server.pid || "None"}</span></div>
-      <div class="detail-row"><span>Uptime</span><span>${escapeHtml(server.uptime || "0s")}</span></div>
+      <div class="server-signal">
+        <span class="health-orbit ${isRunning ? "is-live" : ""}"></span>
+        <strong>${isRunning ? "Live" : "Offline"}</strong>
+      </div>
+      <div class="server-card-stats">
+        <div><span>PID</span><strong>${server.pid || "None"}</strong></div>
+        <div><span>Uptime</span><strong>${escapeHtml(server.uptime || "0s")}</strong></div>
+      </div>
+      <div class="detail-row server-root"><span>Root</span><span class="path-text">${escapeHtml(shortPath(server.rootPath))}</span></div>
       <div class="card-actions">
-        <button class="primary-btn" data-start="${server.id}" ${disabledStart}>Start</button>
-        <button class="ghost-btn" data-stop="${server.id}">Stop</button>
-        <button class="ghost-btn" data-restart="${server.id}" ${disabledStart}>Restart</button>
-        <button class="ghost-btn" data-folder="${escapeHtml(server.rootPath)}">Open Folder</button>
-        <button class="ghost-btn" data-go="logs">Logs</button>
+        <button class="primary-btn action-start" data-start="${server.id}" ${disabledStart}>Start</button>
+        <button class="ghost-btn action-stop" data-stop="${server.id}">Stop</button>
+        <button class="ghost-btn action-restart" data-restart="${server.id}" ${disabledStart}>Restart</button>
+        <button class="ghost-btn action-folder" data-folder="${escapeHtml(server.rootPath)}">Open Folder</button>
+        <button class="ghost-btn action-logs" data-go="logs">Logs</button>
       </div>
     </article>
   `;
@@ -154,20 +188,58 @@ function renderServerCard(server) {
 function renderServers() {
   const servers = state.servers.filter((server) => server.id !== "website");
   const websites = state.servers.filter((server) => server.id === "website");
-  $("#serverCards").innerHTML = servers.map(renderServerCard).join("");
-  $("#websiteCards").innerHTML = websites.map(renderServerCard).join("");
+  const running = servers.filter((server) => server.status === "running").length;
+  const onlineHero = $("#serversOnlineHero");
+  const totalHero = $("#serversTotalHero");
+  if (onlineHero) onlineHero.textContent = running;
+  if (totalHero) totalHero.textContent = servers.length;
+  const serverSignature = JSON.stringify(servers.map((server) => ({
+    id: server.id,
+    name: server.name,
+    type: server.type,
+    status: server.status,
+    message: server.message,
+    rootPath: server.rootPath,
+    pid: server.pid,
+    uptime: server.uptime,
+    command: server.command
+  })));
+  const websiteSignature = JSON.stringify(websites.map((server) => ({
+    id: server.id,
+    name: server.name,
+    type: server.type,
+    status: server.status,
+    message: server.message,
+    rootPath: server.rootPath,
+    pid: server.pid,
+    uptime: server.uptime,
+    command: server.command
+  })));
+  if (serverSignature !== state.serverRenderSignature) {
+    $("#serverCards").innerHTML = servers.length
+      ? servers.map(renderServerCard).join("")
+      : emptyState("No servers configured", "Server entries will appear here after they are added to your controller configuration.");
+    state.serverRenderSignature = serverSignature;
+  }
+  if (websiteSignature !== state.websiteRenderSignature) {
+    $("#websiteCards").innerHTML = websites.length
+      ? websites.map(renderServerCard).join("")
+      : emptyState("No website profile", "Website management uses the same launch controls once a website profile is configured.");
+    state.websiteRenderSignature = websiteSignature;
+  }
 }
 
 function renderGithub() {
   $("#githubEnabled").checked = Boolean(state.github.enabled);
-  $("#repoGrid").innerHTML = (state.github.repos || []).map((repo) => `
+  const repos = state.github.repos || [];
+  $("#repoGrid").innerHTML = repos.length ? repos.map((repo) => `
     <article class="repo-card">
       <div class="repo-head">
         <div>
           <h3>${escapeHtml(repo.name)}</h3>
           <p>${escapeHtml(shortPath(repo.path))}</p>
         </div>
-        <span class="status-pill ${statusClass(repo.status)}">${escapeHtml(repo.status)}</span>
+        <span class="status-pill ${statusClass(repo.status)}">${escapeHtml(statusLabel(repo.status))}</span>
       </div>
       <label class="switch-row">
         <input type="checkbox" data-repo-enabled="${repo.id}" ${repo.enabled ? "checked" : ""} />
@@ -185,7 +257,7 @@ function renderGithub() {
         <button class="danger-btn" data-remove-repo="${repo.id}">Remove</button>
       </div>
     </article>
-  `).join("");
+  `).join("") : emptyState("No repositories watched", "Add a Git repository to enable update scans, commit comparison, and pull controls.");
 }
 
 function renderLogs() {
@@ -194,17 +266,18 @@ function renderLogs() {
     return `[${new Date(entry.timestamp).toLocaleString()}] [${entry.level.toUpperCase()}] [${entry.category}] ${entry.message}${details}`;
   });
   const viewer = $("#logViewer");
-  viewer.textContent = lines.join("\n");
+  viewer.textContent = lines.length ? lines.join("\n") : "No events yet. Logs will stream here as servers, websites, updates, and GitHub tasks run.";
   viewer.scrollTop = viewer.scrollHeight;
-  $("#recentEvents").innerHTML = state.logs.slice(-6).reverse().map((entry) => `
+  const recent = state.logs.slice(-6).reverse();
+  $("#recentEvents").innerHTML = recent.length ? recent.map((entry) => `
     <div class="event-row">
       <div>
         <strong>${escapeHtml(entry.message)}</strong>
         <small>${escapeHtml(entry.category)} / ${formatTime(entry.timestamp)}</small>
       </div>
-      <span class="status-pill ${statusClass(entry.level)}">${escapeHtml(entry.level)}</span>
+      <span class="status-pill ${statusClass(entry.level)}">${escapeHtml(statusLabel(entry.level))}</span>
     </div>
-  `).join("");
+  `).join("") : emptyState("No recent events", "Activity from the controller will appear here as it happens.", true);
 }
 
 function renderSettings() {
@@ -223,13 +296,13 @@ function renderSettings() {
   $("#notifyOnUpdate").checked = updateSettings.notifyOnUpdate !== false;
   $("#updateInterval").value = updateSettings.checkIntervalMinutes || 30;
   $("#externalRootPath").textContent = shortPath(state.external?.rootPath);
-  $("#settingsServers").innerHTML = state.servers.map((server) => `
+  $("#settingsServers").innerHTML = state.servers.length ? state.servers.map((server) => `
     <div class="settings-server" data-settings-server="${server.id}">
       <input value="${escapeHtml(server.name)}" data-field="name" />
       <input value="${escapeHtml(server.rootPath || "")}" data-field="rootPath" />
       <input value="${escapeHtml(server.command || "")}" data-field="command" placeholder="Launch command" />
     </div>
-  `).join("");
+  `).join("") : emptyState("No editable profiles", "Server configuration rows will appear here after profiles are available.");
 }
 
 function renderUpdateModal(updateState) {
@@ -253,7 +326,13 @@ function closeUpdateModal() {
 
 function renderSystem() {
   const system = state.app?.system;
-  $("#systemChip").textContent = system ? `${system.hostname} / ${system.memory.usedPercent}% RAM` : "System loading";
+  const systemChip = $("#systemChip");
+  if (systemChip) {
+    systemChip.textContent = system ? `${system.hostname} / ${system.memory.usedPercent}% RAM` : "System loading";
+  }
+  const version = state.app?.version || state.updates?.currentVersion || "1.0.0";
+  const sidebarVersion = $("#sidebarVersion");
+  if (sidebarVersion) sidebarVersion.textContent = `v${String(version).replace(/^v/i, "")}`;
 }
 
 function renderAll() {
@@ -288,11 +367,14 @@ function bindEvents() {
     }
   });
 
-  $("#themeToggle").addEventListener("click", async () => {
-    const next = state.theme === "dark" ? "light" : "dark";
-    setTheme(next);
-    await safeAction(() => window.essApi.setTheme(next));
-  });
+  const themeToggle = $("#themeToggle");
+  if (themeToggle) {
+    themeToggle.addEventListener("click", async () => {
+      const next = state.theme === "dark" ? "light" : "dark";
+      setTheme(next);
+      await safeAction(() => window.essApi.setTheme(next));
+    });
+  }
 
   $("#createDesktopShortcut").addEventListener("click", async () => {
     await safeAction(() => window.essApi.createDesktopShortcut(), "Desktop shortcut created");

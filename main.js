@@ -1,6 +1,6 @@
 const fs = require("fs");
 const path = require("path");
-const { app, BrowserWindow, ipcMain, shell, dialog } = require("electron");
+const { app, BrowserWindow, ipcMain, shell, dialog, Menu } = require("electron");
 const ConfigManager = require("./backend/configManager");
 const Logger = require("./backend/logger");
 const ProcessManager = require("./backend/processManager");
@@ -17,6 +17,9 @@ let githubUpdater = null;
 let appUpdater = null;
 let externalFiles = null;
 const APP_LOGO = path.join(__dirname, "src", "assets", "logo.png");
+
+app.commandLine.appendSwitch("disable-features", "Vulkan");
+app.commandLine.appendSwitch("disable-gpu-sandbox");
 
 function send(channel, payload) {
   if (mainWindow && !mainWindow.isDestroyed()) {
@@ -57,13 +60,14 @@ function getInstallBasePath() {
 
 function createWindow() {
   mainWindow = new BrowserWindow({
-    width: 1400,
-    height: 850,
-    minWidth: 1120,
-    minHeight: 720,
+    width: 1080,
+    height: 700,
+    minWidth: 980,
+    minHeight: 620,
     title: "ESS Server Controller",
     icon: APP_LOGO,
     backgroundColor: "#070b14",
+    autoHideMenuBar: true,
     show: false,
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
@@ -73,7 +77,7 @@ function createWindow() {
     }
   });
 
-  mainWindow.maximize();
+  mainWindow.setMenuBarVisibility(false);
   mainWindow.loadFile(path.join(__dirname, "src", "index.html"));
   mainWindow.once("ready-to-show", () => mainWindow.show());
   mainWindow.webContents.once("did-finish-load", () => {
@@ -223,6 +227,8 @@ function registerIpc() {
 }
 
 app.whenReady().then(() => {
+  Menu.setApplicationMenu(null);
+
   configManager = new ConfigManager(app.getPath("appData"));
   configManager.init();
 

@@ -21,9 +21,22 @@ function createLnk(linkPath, targetExe, workDir, iconPath, description) {
   }
 }
 
+function desktopShortcutPath() {
+  return path.join(os.homedir(), 'Desktop', `${APP_NAME}.lnk`);
+}
+
+function startMenuShortcutPath() {
+  return path.join(
+    os.homedir(),
+    'AppData', 'Roaming', 'Microsoft', 'Windows', 'Start Menu', 'Programs',
+    APP_NAME,
+    `${APP_NAME}.lnk`
+  );
+}
+
 async function createDesktopShortcut(installPath) {
   const exePath  = path.join(installPath, `${APP_NAME}.exe`);
-  const linkPath = path.join(os.homedir(), 'Desktop', `${APP_NAME}.lnk`);
+  const linkPath = desktopShortcutPath();
   createLnk(linkPath, exePath, installPath, exePath, APP_NAME);
 }
 
@@ -38,4 +51,17 @@ async function createStartMenuShortcut(installPath) {
   createLnk(linkPath, exePath, installPath, exePath, APP_NAME);
 }
 
-module.exports = { createDesktopShortcut, createStartMenuShortcut };
+function hasDesktopShortcut() {
+  return fs.existsSync(desktopShortcutPath());
+}
+
+function hasStartMenuShortcut() {
+  return fs.existsSync(startMenuShortcutPath());
+}
+
+module.exports = {
+  createDesktopShortcut,
+  createStartMenuShortcut,
+  hasDesktopShortcut,
+  hasStartMenuShortcut,
+};

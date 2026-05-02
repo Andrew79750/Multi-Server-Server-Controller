@@ -8,6 +8,9 @@ let controller = null;
 const APP_LOGO = path.join(__dirname, 'assets', 'logo.png');
 let selfDeleteAfterQuit = false;
 
+app.commandLine.appendSwitch('disable-features', 'Vulkan');
+app.commandLine.appendSwitch('disable-gpu-sandbox');
+
 function defaultInstallPath() {
   return path.join(os.homedir(), 'AppData', 'Local', 'Programs', 'ESS-Multi-Server-Manager');
 }
@@ -42,10 +45,12 @@ function createWindow() {
     maxWidth:  900,
     maxHeight: 580,
     frame:     false,
+    titleBarStyle: 'hidden',
     resizable: false,
     center:    true,
     show:      false,
-    backgroundColor: '#0d1117',
+    backgroundColor: '#070b14',
+    hasShadow: true,
     icon: APP_LOGO,
     webPreferences: {
       preload:          path.join(__dirname, 'preload.js'),
@@ -70,8 +75,20 @@ app.on('before-quit', () => {
 });
 
 // ── Window controls ───────────────────────────────────────────────────────────
-ipcMain.handle('window:minimize', () => mainWindow?.minimize());
-ipcMain.handle('window:close',    () => app.quit());
+function getInstallerWindow(event) {
+  return BrowserWindow.fromWebContents(event.sender) || BrowserWindow.getFocusedWindow() || mainWindow;
+}
+
+ipcMain.handle('window:minimize', (event) => getInstallerWindow(event)?.minimize());
+ipcMain.handle('window:close',    (event) => getInstallerWindow(event)?.close());
+ipcMain.handle('window:toggleMaximize', (event) => {
+  const win = getInstallerWindow(event);
+  if (!win || !win.isResizable()) return false;
+  if (win.isMaximized()) win.unmaximize();
+  else win.maximize();
+  return win.isMaximized();
+});
+ipcMain.handle('window:isMaximized', (event) => Boolean(getInstallerWindow(event)?.isMaximized()));
 
 // ── Install-path helpers ──────────────────────────────────────────────────────
 ipcMain.handle('installer:defaultPath', () =>
@@ -114,6 +131,15 @@ ipcMain.handle('installer:checkUpdates', async (_, currentVersion) => {
 ipcMain.handle('installer:start', async (_, opts) => {
   try {
     await controller.install(opts);
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err.message || String(err) };
+  }
+});
+
+ipcMain.handle('repair:start', async (_, opts = {}) => {
+  try {
+    await controller.repair(opts);
     return { ok: true };
   } catch (err) {
     return { ok: false, error: err.message || String(err) };

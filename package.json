@@ -28,7 +28,7 @@
   "build": {
     "appId": "com.ess.servercontroller",
     "productName": "ESS Server Controller",
-    "asar": false,
+    "asar": true,
     "compression": "maximum",
     "afterPack": "scripts/prune-electron-dist.js",
     "directories": {

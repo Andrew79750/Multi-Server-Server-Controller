@@ -21,6 +21,9 @@ exports.default = async function pruneElectronDist(context) {
     "LICENSES.chromium.html",
     "LICENSE.electron.txt",
     "chrome_200_percent.pak",
+    "vk_swiftshader.dll",
+    "vk_swiftshader_icd.json",
+    "vulkan-1.dll",
   ]) {
     rm(path.join(appOutDir, file));
   }

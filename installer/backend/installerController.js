@@ -64,6 +64,22 @@ class InstallerController {
     this.win.webContents.send('install:complete', details);
   }
 
+  repairProgress(percent, message) {
+    this.win.webContents.send('repair:progress', { percent, message });
+  }
+
+  repairLog(message) {
+    this.win.webContents.send('repair:log', message);
+  }
+
+  repairError(message) {
+    this.win.webContents.send('repair:error', message);
+  }
+
+  repairComplete(details) {
+    this.win.webContents.send('repair:complete', details);
+  }
+
   async install(opts) {
     this.opts = opts;
     const { installPath } = opts;
@@ -120,6 +136,80 @@ class InstallerController {
     } finally {
       if (payloadZip) {
         fs.promises.rm(path.dirname(payloadZip), { recursive: true, force: true }).catch(() => {});
+      }
+    }
+  }
+
+  async repair({ installPath } = {}) {
+    const target = this.validateRepairTarget(installPath);
+    let payloadZip = null;
+    let extractDir = null;
+
+    const originalProgress = this.progress.bind(this);
+    const originalLog = this.log.bind(this);
+    this.progress = this.repairProgress.bind(this);
+    this.log = this.repairLog.bind(this);
+
+    try {
+      this.progress(5, 'Validating installed application...');
+      this.log(`Repair target: ${target.installPath}`);
+      this.log(`${APP_NAME}.exe found in repair target.`);
+
+      this.progress(10, 'Checking startup setting...');
+      const startupWasEnabled = await this.hasStartupEntry();
+      this.log(startupWasEnabled ? 'Existing startup entry detected.' : 'No startup entry detected.');
+
+      this.progress(14, 'Closing ESS Server Controller...');
+      this.log('Closing running ESS Server Controller processes...');
+      await this.killRunningApp();
+      await this.sleep(1200);
+
+      this.progress(18, 'Downloading current release payload...');
+      payloadZip = await this.downloadReleasePayload();
+
+      this.progress(70, 'Staging repair files...');
+      extractDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ess-repair-'));
+      await this.extractPayload(payloadZip, extractDir);
+
+      this.progress(78, 'Restoring application files...');
+      await this.copyRepairFiles(extractDir, target.installPath);
+      this.log('Application files restored without deleting runtime folders.');
+
+      this.progress(84, 'Recreating runtime folders...');
+      const externalRoot = this.createExternalFolders(target.installPath);
+      this.log(`Runtime folders verified: ${EXTERNAL_FOLDERS.join(', ')}`);
+
+      this.progress(88, 'Checking shortcuts...');
+      await this.recreateMissingShortcuts(target.installPath);
+
+      this.progress(92, 'Re-registering uninstaller...');
+      this.log('Writing custom uninstaller registration...');
+      await require('./uninstallManager').create(target.installPath);
+
+      if (startupWasEnabled) {
+        this.progress(96, 'Restoring startup entry...');
+        await this.setStartup(target.installPath, true);
+        this.log('Startup entry restored.');
+      } else {
+        this.progress(96, 'Leaving startup setting unchanged...');
+        this.log('Startup setting left untouched.');
+      }
+
+      this.progress(100, 'Repair complete!');
+      this.log(`${APP_NAME} repair completed successfully.`);
+      this.repairComplete({ installPath: target.installPath, externalRoot });
+      return { installPath: target.installPath };
+    } catch (err) {
+      this.repairError(err.message || String(err));
+      throw err;
+    } finally {
+      this.progress = originalProgress;
+      this.log = originalLog;
+      if (payloadZip) {
+        fs.promises.rm(path.dirname(payloadZip), { recursive: true, force: true }).catch(() => {});
+      }
+      if (extractDir) {
+        fs.promises.rm(extractDir, { recursive: true, force: true }).catch(() => {});
       }
     }
   }
@@ -294,6 +384,83 @@ class InstallerController {
     this.log('Payload extracted successfully.');
   }
 
+  validateRepairTarget(installPath) {
+    const rawTarget = String(installPath || '').trim();
+    if (!rawTarget) {
+      throw new Error('Repair target cannot be empty.');
+    }
+
+    if (!path.isAbsolute(rawTarget)) {
+      throw new Error('Repair target must be an absolute path.');
+    }
+
+    const target = path.resolve(rawTarget);
+    const exePath = path.join(target, `${APP_NAME}.exe`);
+    if (!fs.existsSync(target)) {
+      throw new Error('The install folder was not found.');
+    }
+    if (!fs.statSync(target).isDirectory()) {
+      throw new Error('The repair target is not a folder.');
+    }
+    if (!fs.existsSync(exePath)) {
+      throw new Error(`${APP_NAME}.exe was not found in the repair target.`);
+    }
+
+    const unsafeNames = new Set(['', 'users', 'programs', 'program files', 'program files (x86)', 'appdata', 'local', 'roaming']);
+    if (path.parse(target).root === target || unsafeNames.has(path.basename(target).toLowerCase())) {
+      throw new Error('The repair target is too broad to modify safely.');
+    }
+
+    return { installPath: target, exePath };
+  }
+
+  async copyRepairFiles(sourceDir, installPath) {
+    const skipNames = new Set(EXTERNAL_FOLDERS.map(name => name.toLowerCase()));
+    const copyRecursive = async (src, dest, relative = '') => {
+      const entries = await fs.promises.readdir(src, { withFileTypes: true });
+      await fs.promises.mkdir(dest, { recursive: true });
+
+      for (const entry of entries) {
+        const rel = path.join(relative, entry.name);
+        if (!relative && skipNames.has(entry.name.toLowerCase())) {
+          this.log(`Preserving existing ${entry.name} folder.`);
+          continue;
+        }
+
+        const srcPath = path.join(src, entry.name);
+        const destPath = path.join(dest, entry.name);
+        if (entry.isDirectory()) {
+          await copyRecursive(srcPath, destPath, rel);
+        } else if (entry.isFile()) {
+          await fs.promises.copyFile(srcPath, destPath);
+        }
+      }
+    };
+
+    await copyRecursive(sourceDir, installPath);
+    const exePath = path.join(installPath, `${APP_NAME}.exe`);
+    if (!fs.existsSync(exePath)) {
+      throw new Error(`${APP_NAME}.exe was not restored during repair.`);
+    }
+  }
+
+  async recreateMissingShortcuts(installPath) {
+    const shortcutManager = require('./shortcutManager');
+    if (!shortcutManager.hasDesktopShortcut()) {
+      this.log('Desktop shortcut missing; recreating...');
+      await shortcutManager.createDesktopShortcut(installPath);
+    } else {
+      this.log('Desktop shortcut already exists.');
+    }
+
+    if (!shortcutManager.hasStartMenuShortcut()) {
+      this.log('Start Menu shortcut missing; recreating...');
+      await shortcutManager.createStartMenuShortcut(installPath);
+    } else {
+      this.log('Start Menu shortcut already exists.');
+    }
+  }
+
   createExternalFolders(installPath) {
     const externalRoot = installPath;
     fs.mkdirSync(externalRoot, { recursive: true });
@@ -349,22 +516,63 @@ class InstallerController {
   }
 
   setStartup(installPath, enable) {
-    const exe = path.join(installPath, `${APP_NAME}.exe`).replace(/'/g, "''");
-    const script = enable
-      ? `Set-ItemProperty -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Run' -Name '${APP_NAME}' -Value '"${exe}"'`
-      : `Remove-ItemProperty -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Run' -Name '${APP_NAME}' -ErrorAction SilentlyContinue`;
+    const exe = path.join(installPath, `${APP_NAME}.exe`);
+    const runKey = 'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run';
+    const args = enable
+      ? ['add', runKey, '/v', APP_NAME, '/t', 'REG_SZ', '/d', `"${exe}"`, '/f']
+      : ['delete', runKey, '/v', APP_NAME, '/f'];
 
-    return new Promise((resolve, reject) => {
+    return new Promise(resolve => {
+      const child = spawn('reg', args, {
+        windowsHide: true,
+        stdio: 'pipe',
+      });
+      let stdout = '';
+      let stderr = '';
+      child.stdout.on('data', data => {
+        stdout += data.toString();
+      });
+      child.stderr.on('data', data => {
+        stderr += data.toString();
+      });
+      child.on('close', code => {
+        if (code === 0) {
+          this.log(enable ? 'Startup entry enabled.' : 'Startup entry disabled.');
+          resolve();
+          return;
+        }
+
+        const details = [stderr.trim(), stdout.trim()].filter(Boolean).join('\n');
+        this.log(
+          enable
+            ? `WARNING: Could not enable startup entry. ${details || `reg.exe exited with ${code}.`}`
+            : 'Startup entry was already absent.'
+        );
+        resolve();
+      });
+      child.on('error', error => {
+        this.log(`WARNING: Could not update startup entry. ${error.message}`);
+        resolve();
+      });
+    });
+  }
+
+  hasStartupEntry() {
+    const script = `
+$ErrorActionPreference = 'SilentlyContinue'
+$item = Get-ItemProperty -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Run'
+if ($item -and $item.'${APP_NAME}') { Write-Output '1' }
+`.trim();
+
+    return new Promise(resolve => {
       const child = spawn('powershell', ['-NoProfile', '-NonInteractive', '-Command', script], {
         windowsHide: true,
         stdio: 'pipe',
       });
-      let stderr = '';
-      child.stderr.on('data', data => {
-        stderr += data.toString();
-      });
-      child.on('close', code => (code === 0 ? resolve() : reject(new Error(stderr || `Exit ${code}`))));
-      child.on('error', reject);
+      let stdout = '';
+      child.stdout.on('data', data => { stdout += data.toString(); });
+      child.on('close', () => resolve(stdout.trim() === '1'));
+      child.on('error', () => resolve(false));
     });
   }
 }

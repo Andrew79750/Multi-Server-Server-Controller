@@ -2,6 +2,7 @@
 
 // State
 let currentStep = 0;
+let currentPageId = 'page-0';
 let installPath = '';
 let completedPath = '';
 let uninstallPath = '';
@@ -9,8 +10,10 @@ let installedInfo = null;
 let pendingInstallOptions = null;
 let installWarningDismissed = false;
 let flowMode = 'install';
+let installedDetectedMode = false;
 
 const $ = id => document.getElementById(id);
+const windowControls = window.installerApi || window.api;
 
 const stepLabels = {
   install: [
@@ -25,6 +28,23 @@ const stepLabels = {
     ['Removing', 'Cleaning files'],
     ['Complete', 'Removed cleanly'],
   ],
+  repair: [
+    ['Detected', 'Installed app'],
+    ['Options', 'Repair selected'],
+    ['Repairing', 'Restoring files'],
+    ['Complete', 'Ready to launch'],
+  ],
+  installed: [
+    ['Detected', 'Installed app'],
+    ['Updates', 'Release check'],
+    ['Repair', 'Restore files'],
+    ['Close', 'Exit setup'],
+  ],
+};
+
+const pageTitles = {
+  'page-installed': 'Existing Installation',
+  'page-settings': 'Installer Settings',
 };
 
 // Canvas background animation
@@ -108,6 +128,7 @@ function showErrorPopup(msg, title = 'Installation Error') {
   $('ep-title').textContent = title;
   $('ep-msg').textContent = msg;
   const overlay = $('error-overlay');
+  overlay.classList.remove('modal-closing');
   overlay.classList.remove('hidden');
   const popup = $('error-popup');
   popup.style.animation = 'none';
@@ -115,7 +136,20 @@ function showErrorPopup(msg, title = 'Installation Error') {
   popup.style.animation = '';
 }
 
-function hideErrorPopup() { $('error-overlay').classList.add('hidden'); }
+function closePopupOverlay(overlayId) {
+  const overlay = $(overlayId);
+  if (!overlay || overlay.classList.contains('hidden')) return;
+
+  overlay.classList.add('modal-closing');
+  setTimeout(() => {
+    overlay.classList.add('hidden');
+    overlay.classList.remove('modal-closing');
+  }, 260);
+}
+
+function hideErrorPopup() {
+  closePopupOverlay('error-overlay');
+}
 
 function showUpdatePopup({ title, message, mode = 'warning', primaryText = 'Search Updates', secondaryText = 'Not now', onPrimary, onSecondary }) {
   $('up-title').textContent = title;
@@ -133,6 +167,7 @@ function showUpdatePopup({ title, message, mode = 'warning', primaryText = 'Sear
   $('up-secondary').onclick = onSecondary || hideUpdatePopup;
 
   const overlay = $('update-overlay');
+  overlay.classList.remove('modal-closing');
   overlay.classList.remove('hidden');
   const popup = $('update-popup');
   popup.classList.toggle('danger-modal', mode === 'danger');
@@ -142,7 +177,7 @@ function showUpdatePopup({ title, message, mode = 'warning', primaryText = 'Sear
 }
 
 function hideUpdatePopup() {
-  $('update-overlay').classList.add('hidden');
+  closePopupOverlay('update-overlay');
 }
 
 function versionLabel(version) {
@@ -157,12 +192,7 @@ async function refreshInstalledInfo(pathToCheck = installPath) {
 async function refreshUninstallInfo() {
   const info = await window.api.uninstallInfo(installPath || undefined);
   uninstallPath = info.installPath || installPath;
-  $('uninstall-target').textContent = uninstallPath || 'Not found';
   $('btn-uninstall').disabled = !info.installed;
-  $('uninstall-card').classList.toggle('is-disabled', !info.installed);
-  $('uninstall-state').textContent = info.installed
-    ? 'Installed app detected'
-    : 'No installed copy found';
   return info;
 }
 
@@ -179,6 +209,15 @@ function showInstalledWarning(info) {
       hideUpdatePopup();
     },
   });
+}
+
+function showInstalledDetectedPage(info) {
+  installedDetectedMode = true;
+  installPath = info.installPath || installPath;
+  $('installed-version').textContent = info.version ? `v${info.version}` : 'Unknown';
+  $('installed-path').textContent = installPath || 'Not found';
+  setStepperMode('installed');
+  showPage('page-installed');
 }
 
 async function checkForUpdates(info) {
@@ -221,7 +260,7 @@ async function checkForUpdates(info) {
       primaryText: 'Upgrade',
       secondaryText: 'Later',
       onPrimary: () => {
-        const opts = pendingInstallOptions || buildInstallOptions();
+        const opts = pendingInstallOptions || buildInstallOptions(info.installPath || installPath);
         installWarningDismissed = true;
         pendingInstallOptions = null;
         hideUpdatePopup();
@@ -247,10 +286,22 @@ async function checkForUpdates(info) {
 function setStepperMode(mode) {
   flowMode = mode;
   stepLabels[mode].forEach(([title, desc], index) => {
-    $(`sr-${index}`).querySelector('.step-title').textContent = title;
-    $(`sr-${index}`).querySelector('.step-desc').textContent = desc;
+    const step = $(`sr-${index}`);
+    if (!step) return;
+    const titleEl = step.querySelector('.step-title');
+    const descEl = step.querySelector('.step-desc, .step-subtitle');
+    if (titleEl) titleEl.textContent = title;
+    if (descEl) descEl.textContent = desc;
   });
   document.body.classList.toggle('uninstall-mode', mode === 'uninstall');
+  document.body.classList.toggle('repair-mode', mode === 'repair' || mode === 'installed');
+  updateTitlebarTitle();
+}
+
+function updateTitlebarTitle() {
+  const titlebarPageTitle = $('titlebar-page-title');
+  if (!titlebarPageTitle) return;
+  titlebarPageTitle.textContent = pageTitles[currentPageId] || stepLabels[flowMode]?.[currentStep]?.[0] || 'Setup Wizard';
 }
 
 function goTo(step, mode = flowMode) {
@@ -258,9 +309,11 @@ function goTo(step, mode = flowMode) {
   const pages = ['page-0', 'page-1', 'page-2', 'page-3'];
   const rows = ['sr-0', 'sr-1', 'sr-2', 'sr-3'];
 
-  const cur = $(pages[currentStep]);
-  cur.classList.add('slide-out');
-  setTimeout(() => { cur.classList.add('hidden'); cur.classList.remove('slide-out'); }, 300);
+  const cur = $(currentPageId || pages[currentStep]);
+  if (cur) {
+    cur.classList.add('slide-out');
+    setTimeout(() => { cur.classList.add('hidden'); cur.classList.remove('slide-out'); }, 300);
+  }
 
   const next = $(pages[step]);
   next.style.transition = 'none';
@@ -282,6 +335,43 @@ function goTo(step, mode = flowMode) {
     else if (i === step) el.classList.add('active');
   });
   currentStep = step;
+  currentPageId = pages[step];
+  updateTitlebarTitle();
+}
+
+function showPage(pageId) {
+  const pages = ['page-installed', 'page-0', 'page-1', 'page-2', 'page-3'];
+  const cur = $(currentPageId);
+  if (cur && cur.id !== pageId) {
+    cur.classList.add('slide-out');
+    setTimeout(() => { cur.classList.add('hidden'); cur.classList.remove('slide-out'); }, 300);
+  }
+
+  pages.forEach(id => {
+    if (id !== pageId) $(id).classList.add('hidden');
+  });
+
+  const next = $(pageId);
+  next.style.transition = 'none';
+  next.classList.remove('hidden');
+  next.style.opacity = '0';
+  next.style.transform = 'translateX(32px) scale(.98)';
+  next.style.filter = 'blur(3px)';
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    next.style.transition = '';
+    next.style.opacity = '';
+    next.style.transform = '';
+    next.style.filter = '';
+  }));
+
+  currentPageId = pageId;
+  if (pageId === 'page-installed') currentStep = 0;
+  ['sr-0', 'sr-1', 'sr-2', 'sr-3'].forEach((id, i) => {
+    const el = $(id);
+    el.classList.remove('active', 'done');
+    if (i === 0) el.classList.add('active');
+  });
+  updateTitlebarTitle();
 }
 
 function setProgress(pct, msg, mode = flowMode) {
@@ -310,10 +400,10 @@ function addLog(msg, type = '', mode = flowMode) {
 function handleError(msg, mode = flowMode) {
   const ids = activeIdsFor(mode);
   const status = $(ids.status);
-  status.textContent = mode === 'uninstall' ? 'Uninstall failed.' : 'Installation failed.';
+  status.textContent = mode === 'uninstall' ? 'Uninstall failed.' : mode === 'repair' ? 'Repair failed.' : 'Installation failed.';
   status.style.color = 'var(--red)';
   addLog(`ERROR: ${msg}`, 'error', mode);
-  showErrorPopup(msg, mode === 'uninstall' ? 'Uninstall Error' : 'Installation Error');
+  showErrorPopup(msg, mode === 'uninstall' ? 'Uninstall Error' : mode === 'repair' ? 'Repair Error' : 'Installation Error');
 }
 
 function resetProgress(mode) {
@@ -330,17 +420,20 @@ async function init() {
   installPath = await window.api.defaultPath();
   $('install-path').value = installPath;
   refreshInstalledInfo().then(info => {
-    if (info.installed) showInstalledWarning(info);
+    if (info.installed) showInstalledDetectedPage(info);
   }).catch(() => {});
   refreshUninstallInfo().catch(() => {});
 
-  $('btn-min').addEventListener('click', () => window.api.minimize());
-  $('btn-close').addEventListener('click', () => window.api.close());
+  $('btn-min').addEventListener('click', () => windowControls.windowMinimize ? windowControls.windowMinimize() : windowControls.minimize());
+  $('btn-close').addEventListener('click', () => windowControls.windowClose ? windowControls.windowClose() : windowControls.close());
   $('ep-close').addEventListener('click', hideErrorPopup);
 
   $('btn-cancel-0').addEventListener('click', () => window.api.close());
   $('btn-next-0').addEventListener('click', () => goTo(1, 'install'));
   $('btn-uninstall').addEventListener('click', prepareUninstall);
+  $('btn-installed-updates').addEventListener('click', () => checkForUpdates(installedInfo || { version: '', installPath }));
+  $('btn-installed-repair').addEventListener('click', startRepair);
+  $('btn-installed-close').addEventListener('click', () => window.api.close());
 
   $('btn-browse').addEventListener('click', async () => {
     const chosen = await window.api.browse();
@@ -367,8 +460,21 @@ async function init() {
   window.api.onError(err => handleError(err, 'install'));
   window.api.onComplete(({ installPath: p }) => {
     completedPath = p;
+    $('complete-title').textContent = 'Installation Complete!';
+    $('complete-desc').textContent = 'ESS Server Controller is ready to use.';
     $('complete-path').textContent = p;
     setTimeout(() => goTo(3, 'install'), 700);
+  });
+
+  window.api.onRepairProgress(({ percent, message }) => setProgress(percent, message, 'repair'));
+  window.api.onRepairLog(msg => addLog(msg, '', 'repair'));
+  window.api.onRepairError(err => handleError(err, 'repair'));
+  window.api.onRepairComplete(({ installPath: p }) => {
+    completedPath = p;
+    $('complete-title').textContent = 'Repair Complete';
+    $('complete-desc').textContent = 'ESS Server Controller has been restored and is ready to use.';
+    $('complete-path').textContent = p;
+    setTimeout(() => goTo(3, 'repair'), 700);
   });
 
   window.api.onUninstallProgress(({ percent, message }) => setProgress(percent, message, 'uninstall'));
@@ -423,7 +529,33 @@ function beginUninstall(targetPath) {
   window.api.startUninstall({ installPath: targetPath });
 }
 
+async function startRepair() {
+  const targetPath = (installedInfo && installedInfo.installPath) || installPath;
+  const trimmed = String(targetPath || '').trim();
+  if (!trimmed) {
+    showErrorPopup('No installed ESS Server Controller path was detected.', 'Repair Error');
+    return;
+  }
+
+  beginRepair(trimmed);
+}
+
+function beginRepair(targetPath) {
+  setStepperMode('repair');
+  $('install-progress-title').textContent = 'Repairing...';
+  resetProgress('repair');
+  goTo(2, 'repair');
+  setProgress(0, 'Preparing repair...', 'repair');
+  addLog('Repair started...', '', 'repair');
+  window.api.startRepair({ installPath: targetPath });
+}
+
 async function startInstall() {
+  if (installedDetectedMode && currentPageId === 'page-installed') {
+    showInstalledDetectedPage(installedInfo || { version: '', installPath });
+    return;
+  }
+
   const trimmed = installPath.trim();
   if (!trimmed) { showPathError('Please select an installation folder.'); return; }
   const { ok, error } = await window.api.validatePath(trimmed);
@@ -451,6 +583,7 @@ function buildInstallOptions(pathOverride = installPath.trim()) {
 }
 
 function beginInstall(opts) {
+  $('install-progress-title').textContent = 'Installing...';
   setStepperMode('install');
   resetProgress('install');
   goTo(2, 'install');
