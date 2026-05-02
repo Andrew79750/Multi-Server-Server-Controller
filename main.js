@@ -16,6 +16,7 @@ let processManager = null;
 let githubUpdater = null;
 let appUpdater = null;
 let externalFiles = null;
+const notifiedUpdateKeys = new Set();
 const APP_LOGO = path.join(__dirname, "src", "assets", "logo.png");
 
 app.commandLine.appendSwitch("disable-features", "Vulkan");
@@ -35,6 +36,17 @@ function notify(type, message, details = "") {
     details,
     timestamp: new Date().toISOString()
   });
+}
+
+function announceUpdateAvailable(state, { force = false } = {}) {
+  if (!state?.updateAvailable || state.checking) return;
+  const config = configManager?.get().appUpdates || {};
+  if (!force && config.notifyOnUpdate === false) return;
+  const key = `${state.latestVersion || "unknown"}:${state.lastChecked || Date.now()}`;
+  if (notifiedUpdateKeys.has(key)) return;
+  notifiedUpdateKeys.add(key);
+  notify("info", "Update Detected", `Version ${state.latestVersion} is available`);
+  send("updates:available", state);
 }
 
 function getAppState() {
@@ -60,12 +72,14 @@ function getInstallBasePath() {
 
 function createWindow() {
   mainWindow = new BrowserWindow({
-    width: 1080,
+    width: 1280,
     height: 700,
-    minWidth: 980,
-    minHeight: 620,
+    minWidth: 1280,
+    minHeight: 700,
     title: "ESS Server Controller",
     icon: APP_LOGO,
+    frame: false,
+    titleBarStyle: "hidden",
     backgroundColor: "#070b14",
     autoHideMenuBar: true,
     show: false,
@@ -85,6 +99,21 @@ function createWindow() {
   });
 }
 
+function getWindowFromEvent(event) {
+  return BrowserWindow.fromWebContents(event.sender) || BrowserWindow.getFocusedWindow() || mainWindow;
+}
+
+ipcMain.handle("window:minimize", (event) => getWindowFromEvent(event)?.minimize());
+ipcMain.handle("window:close", (event) => getWindowFromEvent(event)?.close());
+ipcMain.handle("window:toggle-maximize", (event) => {
+  const win = getWindowFromEvent(event);
+  if (!win || !win.isResizable()) return false;
+  if (win.isMaximized()) win.unmaximize();
+  else win.maximize();
+  return win.isMaximized();
+});
+ipcMain.handle("window:is-maximized", (event) => Boolean(getWindowFromEvent(event)?.isMaximized()));
+
 async function runStartupUpdateCheck() {
   const config = configManager.get().appUpdates;
   if (!config?.enabled || !config.checkOnStartup) return;
@@ -93,10 +122,7 @@ async function runStartupUpdateCheck() {
     notify("warning", "Update check failed", state.error);
     return;
   }
-  if (state.updateAvailable && config.notifyOnUpdate) {
-    notify("info", `Update ${state.latestVersion} is available`, state.releaseName);
-    send("updates:available", state);
-  }
+  if (config.notifyOnUpdate) announceUpdateAvailable(state);
 }
 
 function createDesktopShortcut() {
@@ -194,6 +220,7 @@ function registerIpc() {
   });
   ipcMain.handle("settings:save", (_event, settings) => {
     const saved = configManager.patch(settings);
+    appUpdater.configureTimer();
     notify("success", "Settings saved");
     send("app:state", getAppState());
     return saved;
@@ -207,14 +234,32 @@ function registerIpc() {
     await processManager.openFolder(folderPath);
     return true;
   });
+  ipcMain.handle("dialog:select-server-root", async () => {
+    const result = await dialog.showOpenDialog(mainWindow, {
+      title: "Select server root folder",
+      properties: ["openDirectory"]
+    });
+    return result.canceled ? "" : result.filePaths[0] || "";
+  });
+  ipcMain.handle("dialog:select-server-launch-file", async () => {
+    const result = await dialog.showOpenDialog(mainWindow, {
+      title: "Select launch executable or batch file",
+      properties: ["openFile"],
+      filters: [
+        { name: "Launch files", extensions: ["exe", "bat", "cmd"] },
+        { name: "Executables", extensions: ["exe"] },
+        { name: "Batch files", extensions: ["bat", "cmd"] },
+        { name: "All files", extensions: ["*"] }
+      ]
+    });
+    return result.canceled ? "" : result.filePaths[0] || "";
+  });
   ipcMain.handle("updates:get-state", () => appUpdater.getState());
   ipcMain.handle("updates:check", async () => {
     const state = await appUpdater.checkLatest({ manual: true });
     if (state.error) notify("warning", "Update check failed", state.error);
-    else if (state.updateAvailable) {
-      notify("info", `Update ${state.latestVersion} is available`, state.releaseName);
-      send("updates:available", state);
-    } else notify("success", "ESS Server Controller is up to date");
+    else if (state.updateAvailable) announceUpdateAvailable(state, { force: true });
+    else notify("success", "ESS Server Controller is up to date");
     return state;
   });
   ipcMain.handle("updates:skip-version", (_event, version) => appUpdater.skipVersion(version));
@@ -251,7 +296,10 @@ app.whenReady().then(() => {
   logger.on("cleared", () => send("logs:cleared"));
   processManager.on("state", (state) => send("server:state", state));
   githubUpdater.on("state", (state) => send("github:state", state));
-  appUpdater.on("state", (state) => send("updates:state", state));
+  appUpdater.on("state", (state) => {
+    send("updates:state", state);
+    announceUpdateAvailable(state);
+  });
 
   registerIpc();
   createWindow();

@@ -8,6 +8,10 @@ const on = (channel, callback) => {
 };
 
 contextBridge.exposeInMainWorld("essApi", {
+  windowMinimize: () => invoke("window:minimize"),
+  windowClose: () => invoke("window:close"),
+  windowToggleMaximize: () => invoke("window:toggle-maximize"),
+  windowIsMaximized: () => invoke("window:is-maximized"),
   getAppState: () => invoke("app:get-state"),
   createDesktopShortcut: () => invoke("app:create-desktop-shortcut"),
   openInstallFolder: () => invoke("app:open-install-folder"),
@@ -33,6 +37,8 @@ contextBridge.exposeInMainWorld("essApi", {
   saveSettings: (settings) => invoke("settings:save", settings),
   setTheme: (theme) => invoke("theme:set", theme),
   openFolder: (folderPath) => invoke("folder:open", folderPath),
+  selectServerRootFolder: () => invoke("dialog:select-server-root"),
+  selectServerLaunchFile: () => invoke("dialog:select-server-launch-file"),
   onLog: (callback) => on("log:new", callback),
   onNotification: (callback) => on("notification:new", callback),
   onGithubState: (callback) => on("github:state", callback),

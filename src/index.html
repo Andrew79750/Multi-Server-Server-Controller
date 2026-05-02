@@ -7,6 +7,30 @@
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
+    <header class="custom-titlebar" aria-label="ESS Server Controller window controls">
+      <div class="titlebar-left">
+        <img class="titlebar-logo" src="./assets/logo.png" alt="" aria-hidden="true" />
+        <div class="titlebar-meta">
+          <div class="titlebar-title">ESS Server Controller</div>
+          <div class="titlebar-subtitle">Control Center</div>
+        </div>
+      </div>
+
+      <div class="titlebar-center" id="titlebarPageTitle">Dashboard</div>
+
+      <div class="titlebar-right">
+        <button class="titlebar-btn" id="windowMinimize" type="button" aria-label="Minimize" title="Minimize">
+          <svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2 6.5h8" /></svg>
+        </button>
+        <button class="titlebar-btn" id="windowMaximize" type="button" aria-label="Maximize" title="Maximize">
+          <svg class="maximize-icon" viewBox="0 0 12 12" aria-hidden="true"><rect x="3" y="3" width="6" height="6" rx="1.2" /></svg>
+          <svg class="restore-icon" viewBox="0 0 12 12" aria-hidden="true"><path d="M4.2 3h4.3c.3 0 .5.2.5.5v4.3"/><rect x="3" y="4.2" width="5" height="5" rx="1" /></svg>
+        </button>
+        <button class="titlebar-btn close" id="windowClose" type="button" aria-label="Close" title="Close">
+          <svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 3l6 6M9 3 3 9" /></svg>
+        </button>
+      </div>
+    </header>
     <div class="app-shell">
       <aside class="sidebar">
         <div class="sidebar-ambient sidebar-ambient-a"></div>
@@ -62,8 +86,9 @@
           </button>
           <div class="sidebar-footer">
             <span class="version-pill" id="sidebarVersion">v1.0.0</span>
-            <span>ESS Core &copy; 2024</span>
+            <span>ESS Core &copy; 2026</span>
           </div>
+          <button class="sidebar-update-link" type="button" id="sidebarCheckUpdates">Check for updates</button>
         </div>
       </aside>
 
@@ -102,18 +127,29 @@
           <section class="servers-command">
             <div>
               <span class="eyebrow">Server Fleet</span>
-              <h2>Control every process from one live rack.</h2>
-              <p>Start, stop, restart, inspect paths, and jump into logs without losing sight of fleet health.</p>
+              <h2>Build your process rack.</h2>
+              <p>Add only the servers you actually run, then export the config and import it into another controller when needed.</p>
             </div>
-            <div class="servers-command-stats">
-              <article>
-                <strong id="serversOnlineHero">0</strong>
-                <span>Online</span>
-              </article>
-              <article>
-                <strong id="serversTotalHero">0</strong>
-                <span>Total</span>
-              </article>
+            <div class="servers-command-side">
+              <div class="servers-command-stats">
+                <article>
+                  <strong id="serversOnlineHero">0</strong>
+                  <span>Online</span>
+                </article>
+                <article>
+                  <strong id="serversTotalHero">0</strong>
+                  <span>Total</span>
+                </article>
+              </div>
+              <div class="servers-command-actions">
+                <button class="add-server-btn" id="openServerSetup" type="button">
+                  <span>+</span>
+                  Setup New Server
+                </button>
+                <button class="ghost-btn" id="exportServerConfig" type="button">Export Server Config</button>
+                <button class="ghost-btn" id="importServerConfig" type="button">Import Server Config</button>
+                <input id="serverConfigFile" type="file" accept="application/json,.json" hidden />
+              </div>
             </div>
           </section>
           <div class="server-rack" id="serverCards"></div>
@@ -245,7 +281,7 @@
               </label>
               <label class="field-row">
                 Check interval minutes
-                <input id="updateInterval" type="number" min="5" step="5" />
+                <input id="updateInterval" type="number" min="60" step="60" />
               </label>
               <div class="button-row settings-actions">
                 <button class="primary-btn" id="checkForUpdates">Check for Updates</button>
@@ -267,11 +303,73 @@
       </main>
     </div>
 
+    <div class="modal-backdrop" id="serverSetupModal" aria-hidden="true">
+      <section class="setup-modal" role="dialog" aria-modal="true" aria-labelledby="serverSetupTitle">
+        <button class="modal-close" id="closeServerSetup" type="button" title="Close">&times;</button>
+        <div class="setup-modal-head">
+          <div class="setup-plus">+</div>
+          <div>
+            <span class="eyebrow">Server Profile</span>
+            <h2 id="serverSetupTitle">Setup New Server</h2>
+            <p>Create a saved profile with the root folder and launch command this controller should run.</p>
+          </div>
+        </div>
+        <form class="server-setup-form" id="serverSetupForm">
+          <label>
+            Server Name
+            <input id="serverNameInput" type="text" placeholder="FiveM Production" required />
+          </label>
+          <label>
+            Server Type
+            <input id="serverTypeInput" type="text" placeholder="FiveM, ArmA 3, Website..." required />
+          </label>
+          <label class="wide">
+            Root Folder
+            <div class="path-picker">
+              <input id="serverRootInput" type="text" placeholder="C:\Servers\FiveM" required />
+              <button class="path-picker-btn" id="browseServerRoot" type="button" title="Select root folder">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6.5A2.5 2.5 0 0 1 5.5 4H10l2 2h6.5A2.5 2.5 0 0 1 21 8.5v8A2.5 2.5 0 0 1 18.5 19h-13A2.5 2.5 0 0 1 3 16.5v-10Z"/><path d="M3 9h18"/></svg>
+              </button>
+            </div>
+          </label>
+          <label class="wide">
+            Launch Command
+            <div class="path-picker">
+              <input id="serverCommandInput" type="text" placeholder="FXServer.exe or C:\Servers\FiveM\FXServer.exe" />
+              <button class="path-picker-btn" id="browseServerCommand" type="button" title="Select exe or bat file">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3v4a2 2 0 0 0 2 2h4"/><path d="M15 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z"/><path d="M9 15h6"/><path d="M9 18h4"/></svg>
+              </button>
+            </div>
+          </label>
+          <label class="wide">
+            Arguments
+            <input id="serverArgsInput" type="text" placeholder="+exec server.cfg" />
+          </label>
+          <div class="button-row modal-actions wide">
+            <button class="primary-btn" type="submit">Save Server</button>
+            <button class="ghost-btn" id="cancelServerSetup" type="button">Cancel</button>
+          </div>
+        </form>
+      </section>
+    </div>
+
     <div class="modal-backdrop" id="updateModal" aria-hidden="true">
       <section class="update-modal" role="dialog" aria-modal="true" aria-labelledby="updateModalTitle">
         <button class="modal-close" id="closeUpdateModal" type="button" title="Close">&times;</button>
-        <span class="eyebrow">GitHub Release</span>
-        <h2 id="updateModalTitle">Update Available</h2>
+        <div class="update-modal-hero">
+          <div class="update-orb" id="updateModalOrb">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 4v6h-6"/><path d="M12 7v5l3 2"/></svg>
+          </div>
+          <div>
+            <span class="eyebrow" id="updateModalEyebrow">GitHub Release</span>
+            <h2 id="updateModalTitle">Update Available</h2>
+            <p id="updateModalMessage">A newer version is ready to install.</p>
+          </div>
+        </div>
+        <div class="update-loading" id="updateLoading">
+          <span></span>
+          <strong>Checking GitHub Releases</strong>
+        </div>
         <div class="version-compare">
           <span id="modalCurrentVersion">Current v0.0.0</span>
           <strong>&rarr;</strong>
@@ -281,7 +379,7 @@
         <p id="modalPublishedDate">Published date</p>
         <div class="changelog-box" id="modalChangelog"></div>
         <div class="button-row modal-actions">
-          <button class="primary-btn" id="downloadUpdate">Download Update</button>
+          <button class="primary-btn" id="downloadUpdate">Update Now</button>
           <button class="ghost-btn" id="viewRelease">View Release</button>
           <button class="ghost-btn" id="remindLater">Remind Me Later</button>
           <button class="danger-btn" id="skipVersion">Skip This Version</button>

@@ -17,6 +17,15 @@ function pickInstallerAssets(assets = []) {
     }));
 }
 
+class HttpStatusError extends Error {
+  constructor(statusCode, body) {
+    super(`GitHub API returned ${statusCode}`);
+    this.name = "HttpStatusError";
+    this.statusCode = statusCode;
+    this.body = body;
+  }
+}
+
 class AppUpdater extends EventEmitter {
   constructor(configManager, logger, currentVersion) {
     super();
@@ -49,7 +58,7 @@ class AppUpdater extends EventEmitter {
     if (this.timer) clearInterval(this.timer);
     const config = this.configManager.get().appUpdates;
     if (!config?.enabled) return;
-    const minutes = Math.max(5, Number(config.checkIntervalMinutes || 30));
+    const minutes = Math.max(60, Number(config.checkIntervalMinutes || 60));
     this.timer = setInterval(() => this.checkLatest({ manual: false, notifyFailures: false }), minutes * 60 * 1000);
     this.timer.unref?.();
   }
@@ -81,7 +90,7 @@ class AppUpdater extends EventEmitter {
         });
         response.on("end", () => {
           if (response.statusCode < 200 || response.statusCode >= 300) {
-            reject(new Error(`GitHub API returned ${response.statusCode}: ${body.slice(0, 180)}`));
+            reject(new HttpStatusError(response.statusCode, body));
             return;
           }
           try {
@@ -109,6 +118,7 @@ class AppUpdater extends EventEmitter {
     const owner = config.github?.owner || "Andrew79750";
     const repo = config.github?.repo || "Multi-Server-Server-Controller";
     const url = `https://api.github.com/repos/${owner}/${repo}/releases/latest`;
+    const releaseUrl = `https://github.com/${owner}/${repo}/releases`;
 
     try {
       const release = await this.requestJson(url);
@@ -128,7 +138,7 @@ class AppUpdater extends EventEmitter {
         tagName: release.tag_name || "",
         changelog: release.body || "",
         publishedAt: release.published_at || release.created_at || null,
-        releaseUrl: release.html_url || `https://github.com/${owner}/${repo}/releases/latest`,
+        releaseUrl: release.html_url || `${releaseUrl}/latest`,
         assets,
         lastChecked: new Date().toISOString(),
         error: ""
@@ -140,10 +150,31 @@ class AppUpdater extends EventEmitter {
         skipped
       });
     } catch (error) {
+      if (error.statusCode === 404) {
+        this.lastResult = {
+          ...this.lastResult,
+          checking: false,
+          updateAvailable: false,
+          currentVersion: this.currentVersion,
+          latestVersion: this.currentVersion,
+          releaseName: "No public release found",
+          tagName: "",
+          changelog: "",
+          publishedAt: null,
+          releaseUrl,
+          assets: [],
+          lastChecked: new Date().toISOString(),
+          message: "No public GitHub release has been published for this app yet.",
+          error: ""
+        };
+        this.logger.info("updates", "No public app release found", { owner, repo });
+        return this.getState();
+      }
       this.lastResult = {
         ...this.lastResult,
         checking: false,
         lastChecked: new Date().toISOString(),
+        message: "",
         error: error.message
       };
       this.logger.warning("updates", "App update check failed", error.message);
